@@ -3,6 +3,7 @@ package com.mukesh.pdfly;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.AttributeSet;
@@ -79,13 +80,28 @@ public class DrawView extends View {
     }
 
     private float lastX, lastY;
-
+    private Matrix inverseMatrix = new Matrix();
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (!drawingEnabled || settingsProvider == null) return false;
-
+        if (!drawingEnabled) {
+            return false;
+        }
         float x = event.getX();
         float y = event.getY();
+
+        // Get the transformation matrix from the parent
+        if (getParent() instanceof ZoomableFrameLayout) {
+            ZoomableFrameLayout parentZoomLayout = (ZoomableFrameLayout) getParent();
+
+            // We need the *inverse* matrix to map screen points to canvas points
+            parentZoomLayout.getTransformationMatrix().invert(inverseMatrix);
+
+            float[] mappedPoints = new float[] { x, y };
+            inverseMatrix.mapPoints(mappedPoints);
+
+            x = mappedPoints[0];
+            y = mappedPoints[1];
+        }
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:

@@ -169,6 +169,7 @@ break;
 
         pageContainer = findViewById(R.id.pageContainer);
         drawButton = findViewById(R.id.drawButton);
+        pageContainer.setBackgroundColor(Color.parseColor("#EEEEEE")); // light gray background
 
         drawButton.setOnClickListener(v -> {
             isDrawMode = !isDrawMode;
@@ -201,8 +202,11 @@ private void renderAllPdfPages(Uri uri) {
             PdfRenderer renderer = new PdfRenderer(pfd);
             int pageCount = renderer.getPageCount();
 
-            // Set the background of pageContainer to gray
-            pageContainer.setBackgroundColor(Color.parseColor("#EEEEEE")); // Light gray
+            int marginPx = (int) TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    12,
+                    getResources().getDisplayMetrics()
+            );
 
             for (int i = 0; i < pageCount; i++) {
                 PdfRenderer.Page page = renderer.openPage(i);
@@ -213,33 +217,39 @@ private void renderAllPdfPages(Uri uri) {
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
                 page.close();
 
-                // Add margin (gap) using padding on the pageFrame
-                FrameLayout pageFrame = new FrameLayout(this);
-                LinearLayout.LayoutParams frameParams = new LinearLayout.LayoutParams(
+                // Create Zoomable layout per page
+                ZoomableFrameLayout zoomablePage = new ZoomableFrameLayout(this);
+                LinearLayout.LayoutParams zoomParams = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-                int margin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
-                frameParams.setMargins(0, margin, 0, margin);
-                pageFrame.setLayoutParams(frameParams);
-                pageFrame.setBackgroundColor(Color.WHITE); // white background for page itself
+                zoomParams.setMargins(0, marginPx, 0, marginPx); // Add gap between pages
+                zoomablePage.setLayoutParams(zoomParams);
+                zoomablePage.setBackgroundColor(Color.WHITE); // Each page is white
 
+                // Add PDF image
                 ImageView imageView = new ImageView(this);
                 imageView.setImageBitmap(bitmap);
                 imageView.setAdjustViewBounds(true);
+                imageView.setLayoutParams(new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT
+                ));
 
+                // Add DrawView overlay
                 DrawView drawView = new DrawView(this);
                 drawView.setDrawSettingsProvider(this);
+                drawView.setDrawingEnabled(isDrawMode);
                 drawView.setLayoutParams(new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT));
-                drawView.setVisibility(View.VISIBLE);
-                drawView.setDrawingEnabled(isDrawMode);
-                drawViews.add(drawView);
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                ));
 
-                pageFrame.addView(imageView);
-                pageFrame.addView(drawView);
-                pageContainer.addView(pageFrame);
+                // Combine views
+                zoomablePage.addView(imageView);
+                zoomablePage.addView(drawView);
+                pageContainer.addView(zoomablePage);
+                drawViews.add(drawView); // for undo/redo/toggle
             }
 
             renderer.close();
