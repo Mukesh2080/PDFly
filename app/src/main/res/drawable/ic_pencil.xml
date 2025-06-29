@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/pencil_icon_layer"
+        android:drawable="@drawable/ic_draw"
+        android:gravity="center_horizontal|top"
+        android:height="24dp"
+        android:width="24dp" />
+
+    <item
+        android:id="@+id/color_line_layer"
+        android:top="22dp"
+        android:height="4dp"
+        >
+        <shape android:shape="rectangle">
+            <corners android:radius="16dp"/>
+            <solid android:color="#FF0000" />
+        </shape>
+    </item>
+
+</layer-list>

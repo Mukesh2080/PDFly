@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Outer ring -->
+    <item
+        android:id="@+id/bg_outer_ring">
+        <shape android:shape="oval">
+            <size android:width="72dp" android:height="72dp" />
+            <solid android:color="@color/color_orange" /> <!-- semi-transparent white -->
+        </shape>
+    </item>
+
+    <!-- Inner color circle -->
+    <item
+        android:id="@+id/bg_inner_circle"
+        android:top="4dp"
+        android:bottom="4dp"
+        android:left="4dp"
+        android:right="4dp">
+        <shape android:shape="oval">
+            <solid android:color="#000000" /> <!-- Default, dynamically tinted -->
+        </shape>
+    </item>
+</layer-list>
