@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/signatureBottomSheet"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_pen_popup_rounded"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select Signature"
+            android:textStyle="bold"
+            android:textSize="18sp" />
+
+        <ImageButton
+            android:id="@+id/btnAddSignature"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:background="@null"
+            android:src="@android:drawable/btn_plus"
+            android:contentDescription="Add Signature" />
+    </RelativeLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/signatureRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:clipToPadding="false"
+        android:paddingTop="4dp" />
+</LinearLayout>

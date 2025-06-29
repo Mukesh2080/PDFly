@@ -1,7 +1,9 @@
 package com.mukesh.pdfly;
 
 import android.app.Dialog;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -21,22 +23,22 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.Gravity;
 
-import androidx.activity.EdgeToEdge;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.slider.Slider;
+import com.mukesh.pdfly.signature.activity.SignatureCreatorActivity;
+import com.mukesh.pdfly.signature.adapter.SignatureAdapter;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -153,6 +155,8 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                     drawView.setDrawingEnabled(isDrawMode); // ✅ ENABLES DRAWING!
                 }
 break;
+            case SIGNATURE:
+                showSignaturePickerBottomSheet();
             // Handle other tools...
         }
     }
@@ -435,7 +439,66 @@ private void renderAllPdfPages(Uri uri) {
             bg.setTint(color);
         }
     }
+    private void showSignaturePickerBottomSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_signature_picker, null);
+        RecyclerView recyclerView = view.findViewById(R.id.signatureRecyclerView);
+        ImageButton btnAdd = view.findViewById(R.id.btnAddSignature);
 
+        // Load signatures from local storage
+        List<Bitmap> signatures = loadSavedSignatures();
+
+        SignatureAdapter adapter = new SignatureAdapter(signatures, selectedSignature -> {
+            dialog.dismiss();
+            // 🔥 Add to PDF now or pass to a handler
+            //addSignatureToPdf(selectedSignature);
+        });
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        recyclerView.setAdapter(adapter);
+
+        btnAdd.setOnClickListener(v -> {
+            dialog.dismiss();
+            openSignatureCreatorScreen();
+        });
+
+        dialog.setContentView(view);
+        dialog.show();
+    }
+    private List<Bitmap> loadSavedSignatures() {
+        List<Bitmap> result = new ArrayList<>();
+        File dir = new File(getFilesDir(), "signatures");
+
+        if (dir.exists() && dir.isDirectory()) {
+            for (File file : dir.listFiles()) {
+                Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+                if (bitmap != null) {
+                    result.add(bitmap);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static final int REQUEST_SIGNATURE_CREATE = 101;
+
+    private void openSignatureCreatorScreen() {
+        Intent intent = new Intent(this, SignatureCreatorActivity.class);
+        startActivityForResult(intent, REQUEST_SIGNATURE_CREATE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_SIGNATURE_CREATE && resultCode == RESULT_OK && data != null) {
+            String path = data.getStringExtra("signaturePath");
+            if (path != null) {
+                // Add this image as a movable/resizable signature on PDF
+                //insertSignatureFromPath(path);
+            }
+        }
+    }
 
 
 }

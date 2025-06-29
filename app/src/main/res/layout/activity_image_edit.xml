@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#222222"
+    tools:context=".imageEditor.activity.ImageEditActivity">
+
+    <!-- Image container and cropping overlay -->
+    <FrameLayout
+        android:id="@+id/image_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@+id/button_panel"
+        android:layout_centerInParent="true"
+        android:background="#333333">
+
+        <ImageView
+            android:id="@+id/image_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:adjustViewBounds="true"
+            android:background="#000000"
+            tools:src="@tools:sample/avatars" />
+
+        <com.mukesh.pdfly.imageEditor.views.CropOverlayView
+        android:id="@+id/crop_overlay_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    </FrameLayout>
+
+    <!-- Control Buttons Panel -->
+    <LinearLayout
+        android:id="@+id/button_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:padding="8dp"
+        android:background="#1C1C1C">
+
+        <Button
+            android:id="@+id/btn_rotate_left"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Rotate Left"
+            android:backgroundTint="#4CAF50"
+            android:textColor="@android:color/white"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btn_rotate_right"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Rotate Right"
+            android:backgroundTint="#4CAF50"
+            android:textColor="@android:color/white"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btn_cancel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cancel"
+            android:backgroundTint="#F44336"
+            android:textColor="@android:color/white"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btn_confirm_crop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Crop"
+            android:backgroundTint="#2196F3"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
+</RelativeLayout>
