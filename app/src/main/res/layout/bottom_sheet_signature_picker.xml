@@ -25,8 +25,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
-            android:background="@null"
-            android:src="@android:drawable/btn_plus"
+            android:background="@drawable/bg_add_sign_dotted"
+            android:src="@drawable/ic_add_light_24dp"
             android:contentDescription="Add Signature" />
     </RelativeLayout>
 
@@ -34,6 +34,7 @@
         android:id="@+id/signatureRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="200dp"
+        android:clipChildren="false"
         android:clipToPadding="false"
         android:paddingTop="4dp" />
 </LinearLayout>

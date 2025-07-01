@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:padding="30dp">
+
+    <!-- Background View (only around signature) -->
+    <FrameLayout
+        android:id="@+id/signatureBackground"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_element_selected"
+        android:visibility="gone"/>
+
+    <!-- Signature Container -->
+    <FrameLayout
+        android:id="@+id/signatureContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_element_selected"
+        android:layout_gravity="center">
+
+        <!-- Signature Image -->
+        <ImageView
+            android:id="@+id/signatureImage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"/>
+
+    </FrameLayout>
+
+    <!-- Delete Button (Top Right, Outside) -->
+    <ImageButton
+        android:id="@+id/deleteIcon"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="-18dp"
+        android:layout_marginEnd="-18dp"
+        android:src="@drawable/ic_delete_24dp"
+        android:background="@drawable/circle_button_bg"
+        android:visibility="gone"/>
+
+    <!-- Resize Handle (Bottom Right, Outside) -->
+    <ImageView
+        android:id="@+id/resizeHandle"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginBottom="-18dp"
+        android:layout_marginEnd="-18dp"
+        android:src="@drawable/open_in_full_24dp"
+        android:background="@drawable/circle_button_bg"
+        android:visibility="gone"/>
+
+    <!-- Rotate Handle (Top Left, Outside) -->
+    <ImageView
+        android:id="@+id/rotateHandle"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="top|start"
+        android:layout_marginTop="-18dp"
+        android:layout_marginStart="-18dp"
+        android:src="@android:drawable/ic_menu_rotate"
+        android:background="@drawable/circle_button_bg"
+        android:visibility="gone"/>
+
+</FrameLayout>

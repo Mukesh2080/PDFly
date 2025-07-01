@@ -25,7 +25,7 @@
             android:name=".signature.activity.SignatureCreatorActivity"
             android:exported="false" />
         <activity
-            android:name=".PdfEditorActivity"
+            android:name=".pdfrenderer.activity.PdfEditorActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

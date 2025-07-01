@@ -1,14 +1,15 @@
-package com.mukesh.pdfly;
+package com.mukesh.pdfly.pdfrenderer.views;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+
+import com.mukesh.pdfly.DrawSettingsProvider;
 
 import java.util.ArrayList;
 import java.util.List;

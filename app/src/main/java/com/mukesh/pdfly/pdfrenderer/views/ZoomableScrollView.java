@@ -1,4 +1,4 @@
-package com.mukesh.pdfly;
+package com.mukesh.pdfly.pdfrenderer.views;
 
 import android.content.Context;
 import android.util.AttributeSet;

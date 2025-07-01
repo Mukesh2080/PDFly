@@ -1,8 +1,6 @@
-package com.mukesh.pdfly;
+package com.mukesh.pdfly.pdfrenderer.adapter;
 
 import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
 import android.text.format.Formatter;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,6 +8,8 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.mukesh.pdfly.R;
 
 import java.io.File;
 import java.util.List;
