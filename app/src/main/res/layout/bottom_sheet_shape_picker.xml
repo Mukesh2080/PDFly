@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/shapeContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/floating_dialog_background"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <ImageButton
+        android:id="@+id/btnRectangle"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/ic_baseline_crop_square_24"
+        android:background="@drawable/bg_toolbar_button_selector"
+        android:contentDescription="Rectangle" />
+
+    <ImageButton
+        android:id="@+id/btnCircle"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/ic_baseline_circle_24"
+        android:background="@drawable/bg_toolbar_button_selector"
+        android:layout_marginStart="16dp"
+        android:contentDescription="Circle" />
+
+    <ImageButton
+        android:id="@+id/btnArrow"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/ic_baseline_show_chart_24"
+        android:background="@drawable/bg_toolbar_button_selector"
+        android:layout_marginStart="16dp"
+        android:contentDescription="Arrow" />
+
+    <ImageButton
+        android:id="@+id/btnLine"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/ic_baseline_show_chart_24"
+        android:background="@drawable/bg_toolbar_button_selector"
+        android:layout_marginStart="16dp"
+        android:contentDescription="Line" />
+
+</LinearLayout>

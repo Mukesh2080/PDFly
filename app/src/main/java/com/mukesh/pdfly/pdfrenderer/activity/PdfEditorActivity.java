@@ -61,6 +61,12 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
     private final List<OverlayElementView> overlayElements = new ArrayList<>();
 
     private int currentDrawColor = Color.BLACK;
+    private ShapeType selectedShapeType;
+
+    public enum ShapeType {
+        RECTANGLE, CIRCLE, ARROW, LINE
+    }
+
     private Uri pdfUri;
     private boolean isEditable;
     private LinearLayout pageContainer;
@@ -82,7 +88,7 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
     }
 
     private enum ToolType {
-        DRAW, UNDO, REDO, COLOR, SHAPE, SIGNATURE, COMMENT
+        DRAW, UNDO, REDO, BLOCK_ACTION, SHAPE, SIGNATURE, COMMENT
     }
 
     private int[] toolIcons = {
@@ -91,7 +97,7 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
     };
 
     private ToolType[] tools = {
-            ToolType.DRAW, ToolType.UNDO, ToolType.REDO, ToolType.COLOR, ToolType.SHAPE, ToolType.SIGNATURE, ToolType.COMMENT
+            ToolType.DRAW, ToolType.UNDO, ToolType.REDO, ToolType.BLOCK_ACTION, ToolType.SHAPE, ToolType.SIGNATURE, ToolType.COMMENT
     };
 
     private void setupToolbar() {
@@ -121,13 +127,15 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             }
         }
 
-        if (selectedToolIndex != -1) {
+        if (selectedToolIndex != -1 && !(index==1 || index ==2)) {
             View prev = toolContainer.getChildAt(selectedToolIndex);
             prev.setSelected(false);
         }
+        if(!(index==1 || index ==2)){
+            tapped.setSelected(true);
+            selectedToolIndex = index;
+        }
 
-        tapped.setSelected(true);
-        selectedToolIndex = index;
 
         ToolType selectedTool = tools[index];
         switch (selectedTool) {
@@ -137,8 +145,12 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                     dv.setDrawingEnabled(true);
                 }
                 break;
-            case COLOR:
-                showColorPicker();
+            case BLOCK_ACTION:
+                isDrawMode = false;
+                for (DrawView dv : drawViews) {
+                    dv.setDrawingEnabled(isDrawMode);
+                }
+                selectedSignatureBitmap = null;
                 break;
             case UNDO:
                 if (!overlayElements.isEmpty()) {
@@ -156,18 +168,15 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 }
                 break;
             case SHAPE:
-                isDrawMode = !isDrawMode;
-                for (DrawView dv : drawViews) {
-                    dv.setDrawingEnabled(isDrawMode);
-                }
-                selectedSignatureBitmap = null;
+                showShapePickerDialog();
+                Toast.makeText(this, "Shape Clicked", Toast.LENGTH_SHORT).show();
                 break;
             case SIGNATURE:
                 isDrawMode = false;
                 for (DrawView dv : drawViews) {
                     dv.setDrawingEnabled(isDrawMode);
                 }
-                showSignaturePickerBottomSheet();
+                showSignaturePickerDialog();
                 break;
         }
     }
@@ -375,25 +384,57 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
         overlayElements.add(signatureView);
         onElementSelected(signatureView);
     }
-    private void showSignaturePickerBottomSheet() {
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_signature_picker, null);
-        RecyclerView recyclerView = view.findViewById(R.id.signatureRecyclerView);
-        ImageButton btnAdd = view.findViewById(R.id.btnAddSignature);
+    private void showSignaturePickerDialog() {
+        // Create dialog with transparent background
+        Dialog dialog = new Dialog(this);
+        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_signature_picker, null);
 
+        // Apply margins and rounded corners
+        FrameLayout wrapper = new FrameLayout(this);
+        FrameLayout.LayoutParams wrapParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        int margin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
+        wrapParams.setMargins(margin, margin, margin, margin);
+        sheetView.setLayoutParams(wrapParams);
+
+        // Add card-like background
+        sheetView.setBackgroundResource(R.drawable.floating_dialog_background);
+        wrapper.addView(sheetView);
+        dialog.setContentView(wrapper);
+
+        // Window styling
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+
+            WindowManager.LayoutParams wlp = window.getAttributes();
+            wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
+            wlp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            wlp.gravity = Gravity.BOTTOM;
+            wlp.y = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 80, getResources().getDisplayMetrics());
+            window.setAttributes(wlp);
+
+            // Add enter/exit animations
+            window.setWindowAnimations(R.style.DialogAnimation);
+        }
+
+        // Initialize views
+        RecyclerView recyclerView = sheetView.findViewById(R.id.signatureRecyclerView);
+        ImageButton btnAdd = sheetView.findViewById(R.id.btnAddSignature);
+
+        // Load signatures
         List<File> signatures = loadSavedSignatureFiles();
 
+        // Setup adapter
         adapter = new SignatureAdapter(signatures, selectedSignature -> {
             selectedSignatureBitmap = selectedSignature;
             dialog.dismiss();
-        },(position, file) -> {
-            // Delete file from storage
+        }, (position, file) -> {
             if (file.exists()) file.delete();
-
-            // Remove from adapter
             adapter.removeAt(position);
-
-            // Optional: Show feedback
             Toast.makeText(this, "Signature deleted", Toast.LENGTH_SHORT).show();
         });
 
@@ -405,10 +446,8 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             openSignatureCreatorScreen();
         });
 
-        dialog.setContentView(view);
         dialog.show();
     }
-
     private List<File> loadSavedSignatureFiles() {
         List<File> result = new ArrayList<>();
         File dir = new File(getFilesDir(), "signatures");
@@ -419,6 +458,66 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
         }
         return result;
     }
+
+    private void showShapePickerDialog() {
+        Dialog dialog = new Dialog(this);
+        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_shape_picker, null);
+
+        FrameLayout wrapper = new FrameLayout(this);
+        FrameLayout.LayoutParams wrapParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        int margin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
+        wrapParams.setMargins(margin, margin, margin, margin);
+        sheetView.setLayoutParams(wrapParams);
+        sheetView.setBackgroundResource(R.drawable.floating_dialog_background);
+        wrapper.addView(sheetView);
+        dialog.setContentView(wrapper);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+
+            WindowManager.LayoutParams wlp = window.getAttributes();
+            wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
+            wlp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            wlp.gravity = Gravity.BOTTOM;
+            wlp.y = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 80, getResources().getDisplayMetrics());
+            window.setAttributes(wlp);
+            window.setWindowAnimations(R.style.DialogAnimation);
+        }
+
+        ImageButton btnRectangle = sheetView.findViewById(R.id.btnRectangle);
+        ImageButton btnCircle = sheetView.findViewById(R.id.btnCircle);
+        ImageButton btnArrow = sheetView.findViewById(R.id.btnArrow);
+        ImageButton btnLine = sheetView.findViewById(R.id.btnLine);
+
+        View.OnClickListener shapeClickListener = v -> {
+            int id = v.getId();
+            if (id == R.id.btnRectangle) {
+                selectedShapeType = ShapeType.RECTANGLE;
+            } else if (id == R.id.btnCircle) {
+                selectedShapeType = ShapeType.CIRCLE;
+            } else if (id == R.id.btnArrow) {
+                selectedShapeType = ShapeType.ARROW;
+            } else if (id == R.id.btnLine) {
+                selectedShapeType = ShapeType.LINE;
+            }
+
+            dialog.dismiss();
+            //enableShapeDrawingMode(selectedShapeType);
+        };
+
+        btnRectangle.setOnClickListener(shapeClickListener);
+        btnCircle.setOnClickListener(shapeClickListener);
+        btnArrow.setOnClickListener(shapeClickListener);
+        btnLine.setOnClickListener(shapeClickListener);
+
+        dialog.show();
+    }
+
 
     private static final int REQUEST_SIGNATURE_CREATE = 101;
 

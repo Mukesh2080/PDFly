@@ -1,6 +1,7 @@
 package com.mukesh.pdfly.signature.activity;
 
 import android.os.Bundle;
+import android.view.Gravity;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager2.widget.ViewPager2;
@@ -29,7 +30,20 @@ public class SignatureCreatorActivity extends AppCompatActivity {
         viewPager.setAdapter(adapter);
 
         new TabLayoutMediator(tabLayout, viewPager,
-                (tab, position) -> tab.setText(position == 0 ? "Draw" : "Import")).attach();
+                (tab, position) -> {
+                    // Set both text and icon for each tab
+                    if (position == 0) {
+                        tab.setText("Draw");
+                        tab.setIcon(R.drawable.ic_draw_sign);
+                    } else {
+                        tab.setText("Import");
+                        tab.setIcon(R.drawable.ic_file_signature_24dp);
+                    }
+
+                    // Optional: Customize tab appearance
+                    tab.view.setGravity(Gravity.CENTER);
+                }
+        ).attach();
     }
     public void setSwipeEnabled(boolean enabled) {
         if (swipeDisabler != null) {
