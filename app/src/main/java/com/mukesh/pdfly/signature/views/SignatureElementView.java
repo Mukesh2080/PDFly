@@ -26,10 +26,12 @@ public class SignatureElementView extends OverlayElementView {
     private float initialRotation = 0f;
     private View signatureContainer;
     private View signatureBackground;
+    private Bitmap signatureBitmap;
 
 
     public SignatureElementView(Context context, Bitmap signatureBitmap) {
         super(context);
+        this.signatureBitmap = signatureBitmap;
         initView(signatureBitmap);
     }
 
@@ -188,4 +190,28 @@ public class SignatureElementView extends OverlayElementView {
         signatureContainer.setBackgroundResource(selected? R.drawable.bg_element_selected: Color.TRANSPARENT);
 
     }
+    @Override
+    public boolean hitTest(float globalX, float globalY) {
+        int[] location = new int[2];
+        getLocationOnScreen(location);
+
+        float localX = globalX - location[0];
+        float localY = globalY - location[1];
+
+        if (localX < 0 || localY < 0 || localX >= getWidth() || localY >= getHeight()) {
+            return false;
+        }
+
+        if (signatureBitmap != null) {
+            int bmpX = (int) (localX * signatureBitmap.getWidth() / getWidth());
+            int bmpY = (int) (localY * signatureBitmap.getHeight() / getHeight());
+
+            if (bmpX >= 0 && bmpY >= 0 && bmpX < signatureBitmap.getWidth() && bmpY < signatureBitmap.getHeight()) {
+                int pixel = signatureBitmap.getPixel(bmpX, bmpY);
+                return Color.alpha(pixel) > 30; // Only count mostly opaque pixels
+            }
+        }
+        return false;
+    }
+
 }

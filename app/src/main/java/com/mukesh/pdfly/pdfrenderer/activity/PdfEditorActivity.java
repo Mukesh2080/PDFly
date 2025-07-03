@@ -1,58 +1,57 @@
 package com.mukesh.pdfly.pdfrenderer.activity;
 
-import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
-import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.PopupMenu;
+import android.widget.SeekBar;
 import android.widget.Toast;
-import android.view.Gravity;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.ColorUtils;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
-import com.google.android.material.slider.Slider;
 import com.mukesh.pdfly.DrawSettingsProvider;
+import com.mukesh.pdfly.pdfrenderer.helper.PdfRendererHelper;
+import com.mukesh.pdfly.pdfrenderer.helper.PenSettingsDialogHelper;
+import com.mukesh.pdfly.pdfrenderer.helper.ShapeElementView;
+import com.mukesh.pdfly.pdfrenderer.helper.ShapePickerDialogHelper;
+import com.mukesh.pdfly.pdfrenderer.helper.TextElementView;
+import com.mukesh.pdfly.pdfrenderer.helper.ToolManager;
 import com.mukesh.pdfly.pdfrenderer.views.DrawView;
 import com.mukesh.pdfly.R;
 import com.mukesh.pdfly.pdfrenderer.views.ZoomableFrameLayout;
 import com.mukesh.pdfly.signature.activity.SignatureCreatorActivity;
 import com.mukesh.pdfly.signature.adapter.SignatureAdapter;
+import com.mukesh.pdfly.signature.helper.SignaturePickerDialogHelper;
+import com.mukesh.pdfly.pdfrenderer.helper.CheckmarkElementView;
 import com.mukesh.pdfly.signature.views.OverlayElementView;
 import com.mukesh.pdfly.signature.views.SignatureElementView;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 public class PdfEditorActivity extends AppCompatActivity implements DrawSettingsProvider {
     private int globalPaintColor = Color.BLACK;
-    private float globalStrokeWidth = 1f;
+    private float globalStrokeWidth = 9f;
     private ImageView drawToolIconView;
     private Bitmap selectedSignatureBitmap = null;
 
@@ -60,22 +59,31 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
     private final List<DrawView> drawViews = new ArrayList<>();
     private final List<OverlayElementView> overlayElements = new ArrayList<>();
 
-    private int currentDrawColor = Color.BLACK;
-    private ShapeType selectedShapeType;
+    private ToolManager toolManager;
 
-    public enum ShapeType {
-        RECTANGLE, CIRCLE, ARROW, LINE
-    }
+    private SignaturePickerDialogHelper signaturePickerDialogHelper;
 
     private Uri pdfUri;
     private boolean isEditable;
     private LinearLayout pageContainer;
     private boolean isDrawMode = false;
     private ImageButton drawButton;
-    private LinearLayout toolContainer;
     private int selectedToolIndex = -1;
-    private SignatureAdapter adapter;
 
+    private ShapeType selectedShapeType = null;
+
+    private SignatureAdapter adapter;
+    private PenSettingsDialogHelper penSettingsDialogHelper;
+
+    private ShapePickerDialogHelper shapePickerDialogHelper;
+    private boolean isCheckmarkSelected = false;
+    private boolean blockAllActions = false;
+    private boolean selectedTextMode = false; // set this true when text icon is clicked
+
+
+    public enum ShapeType {
+        RECTANGLE, CIRCLE, ARROW, LINE
+    }
 
     @Override
     public int getCurrentPaintColor() {
@@ -87,75 +95,41 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
         return globalStrokeWidth;
     }
 
-    private enum ToolType {
-        DRAW, UNDO, REDO, BLOCK_ACTION, SHAPE, SIGNATURE, COMMENT
-    }
-
-    private int[] toolIcons = {
-            R.drawable.ic_pencil, R.drawable.ic_undo, R.drawable.ic_redo,
-            R.drawable.ic_block_24dp, R.drawable.ic_shapes_24dp, R.drawable.ic_signature_solid, R.drawable.ic_comment
-    };
-
-    private ToolType[] tools = {
-            ToolType.DRAW, ToolType.UNDO, ToolType.REDO, ToolType.BLOCK_ACTION, ToolType.SHAPE, ToolType.SIGNATURE, ToolType.COMMENT
-    };
-
-    private void setupToolbar() {
-        toolContainer = findViewById(R.id.toolContainer);
-        LayoutInflater inflater = LayoutInflater.from(this);
-
-        for (int i = 0; i < tools.length; i++) {
-            View toolItem = inflater.inflate(R.layout.item_tool_button, toolContainer, false);
-            ImageView btnTool = toolItem.findViewById(R.id.btnTool);
-            btnTool.setImageResource(toolIcons[i]);
-            if (tools[i] == ToolType.DRAW) {
-                drawToolIconView = btnTool;
-            }
-            int index = i;
-            toolItem.setOnClickListener(v -> handleToolSelection(index));
-            toolContainer.addView(toolItem);
-        }
-    }
-
-    private void handleToolSelection(int index) {
-        View tapped = toolContainer.getChildAt(index);
-
-        if (selectedToolIndex == index) {
-            if (!drawViews.isEmpty() && index == 0) {
-                showPenPopup();
-                return;
-            }
-        }
-
-        if (selectedToolIndex != -1 && !(index==1 || index ==2)) {
-            View prev = toolContainer.getChildAt(selectedToolIndex);
-            prev.setSelected(false);
-        }
-        if(!(index==1 || index ==2)){
-            tapped.setSelected(true);
-            selectedToolIndex = index;
-        }
-
-
-        ToolType selectedTool = tools[index];
+    private void handleToolSelection(ToolManager.ToolType selectedTool, int index) {
+        selectedTextMode = false;
+        blockAllActions = false;
+        deselectAllOverlays();
         switch (selectedTool) {
             case DRAW:
+                if (selectedToolIndex == index) {
+                    penSettingsDialogHelper.show();
+                    // Reopen if tapped again
+                    return;
+                }
                 isDrawMode = true;
                 for (DrawView dv : drawViews) {
                     dv.setDrawingEnabled(true);
                 }
                 break;
+
             case BLOCK_ACTION:
+                blockAllActions = true;
                 isDrawMode = false;
                 for (DrawView dv : drawViews) {
-                    dv.setDrawingEnabled(isDrawMode);
+                    dv.setDrawingEnabled(false);
                 }
                 selectedSignatureBitmap = null;
                 break;
+
             case UNDO:
+                cleanOrphanOverlays();
                 if (!overlayElements.isEmpty()) {
-                    OverlayElementView last = overlayElements.remove(overlayElements.size() - 1);
-                    ((ViewGroup) last.getParent()).removeView(last);
+                    OverlayElementView last = overlayElements.get(overlayElements.size() - 1);
+                    ViewGroup parent = (ViewGroup) last.getParent();
+                    if (parent != null) {
+                        parent.removeView(last);
+                    }
+                    overlayElements.remove(overlayElements.size() - 1);
                 } else {
                     for (DrawView dv : drawViews) {
                         if (dv.isShown()) dv.undo();
@@ -168,17 +142,41 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 }
                 break;
             case SHAPE:
-                showShapePickerDialog();
-                Toast.makeText(this, "Shape Clicked", Toast.LENGTH_SHORT).show();
+                deselectAllOverlays();
+                isDrawMode = false;
+                for (DrawView dv : drawViews) dv.setDrawingEnabled(false);
+                shapePickerDialogHelper.show();
                 break;
             case SIGNATURE:
                 isDrawMode = false;
                 for (DrawView dv : drawViews) {
-                    dv.setDrawingEnabled(isDrawMode);
+                    dv.setDrawingEnabled(false);
                 }
-                showSignaturePickerDialog();
+                signaturePickerDialogHelper.show();
+                break;
+            case COMMENT:
+                deselectAllOverlays();
+                isCheckmarkSelected = true;
+                selectedShapeType = null;
+                selectedSignatureBitmap = null;
+                isDrawMode = false;
+                for (DrawView dv : drawViews) dv.setDrawingEnabled(false);
+
+                Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
+                break;
+            case TEXT:
+                deselectAllOverlays();
+                selectedTextMode = true;
+                isCheckmarkSelected = false;
+                selectedShapeType = null;
+                selectedSignatureBitmap = null;
+                isDrawMode = false;
+                for (DrawView dv : drawViews) dv.setDrawingEnabled(false);
+
+                Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
                 break;
         }
+        selectedToolIndex = index;
     }
 
     @Override
@@ -186,8 +184,43 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pdf_editor);
 
-        pdfUri = Uri.parse(getIntent().getStringExtra("pdfUri"));
-        isEditable = getIntent().getBooleanExtra("isEditable", false);
+        toolManager = new ToolManager(this, findViewById(R.id.toolContainer), this::handleToolSelection);
+        drawToolIconView = toolManager.getDrawToolIconView();
+
+        signaturePickerDialogHelper = new SignaturePickerDialogHelper(this, new SignaturePickerDialogHelper.SignatureSelectionListener() {
+            @Override
+            public void onSignatureSelected(Bitmap signature) {
+                selectedSignatureBitmap = signature;
+            }
+
+            @Override
+            public void onAddNewSignatureRequested() {
+                openSignatureCreatorScreen();
+            }
+        });
+
+        shapePickerDialogHelper = new ShapePickerDialogHelper(this, shapeType -> {
+            selectedShapeType = shapeType;
+            Toast.makeText(this, "Shape: " + shapeType.name(), Toast.LENGTH_SHORT).show();
+        });
+
+        penSettingsDialogHelper = new PenSettingsDialogHelper(this, globalPaintColor, globalStrokeWidth, new PenSettingsDialogHelper.OnPenSettingsChangedListener() {
+            @Override
+            public void onColorChanged(int color) {
+                globalPaintColor = color;
+                updateDrawToolColorIndicator(color);
+            }
+
+            @Override
+            public void onStrokeWidthChanged(float stroke) {
+                globalStrokeWidth = stroke;
+            }
+        });
+
+//        pdfUri = Uri.parse(getIntent().getStringExtra("pdfUri"));
+//        isEditable = getIntent().getBooleanExtra("isEditable", false);
+        Intent intent = getIntent();
+        Uri pdfUri = intent.getData();
 
         pageContainer = findViewById(R.id.pageContainer);
         drawButton = findViewById(R.id.drawButton);
@@ -200,123 +233,145 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 dv.setDrawingEnabled(isDrawMode);
             }
         });
+        if (pdfUri != null) {
+            renderAllPdfPages(pdfUri);
+        } else {
+            Toast.makeText(this, "No PDF selected", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+       // renderAllPdfPages(pdfUri);
+    }
+    private void addShapeToPage(ViewGroup parent, float x, float y, ShapeType shapeType) {
+        ShapeElementView shapeView = new ShapeElementView(this, shapeType, globalPaintColor, globalStrokeWidth);
 
-        setupToolbar();
-        renderAllPdfPages(pdfUri);
+        int width = dpToPx(100);
+        int height = dpToPx(100);
+
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
+        params.leftMargin = (int) x - width / 2;
+        params.topMargin = (int) y - height / 2;
+
+        shapeView.setLayoutParams(params);
+        parent.addView(shapeView);
+        overlayElements.add(shapeView);
+        onElementSelected(shapeView);
     }
 
     private void renderAllPdfPages(Uri uri) {
-        try (ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r")) {
-            if (pfd == null) return;
+        int marginPx = dpToPx(12);
 
-            PdfRenderer renderer = new PdfRenderer(pfd);
-            int pageCount = renderer.getPageCount();
-            int marginPx = dpToPx(12);
+        pageContainer.removeAllViews();
+        pageContainer.removeAllViews();
+        zoomablePages.clear();
+        drawViews.clear();
+        overlayElements.clear();
 
-            // Clear previous content if needed
-            pageContainer.removeAllViews();
-            zoomablePages.clear();
-            drawViews.clear();
-            overlayElements.clear();
+        PdfRendererHelper.renderAllPages(this, uri, (bitmap, index) -> {
+            ZoomableFrameLayout zoomablePage = new ZoomableFrameLayout(this);
+            zoomablePage.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ) {{
+                setMargins(0, marginPx, 0, marginPx);
+            }});
+            zoomablePage.setBackgroundColor(Color.WHITE);
 
-            for (int i = 0; i < pageCount; i++) {
-                // Render PDF page to bitmap
-                PdfRenderer.Page page = renderer.openPage(i);
-                Bitmap bitmap = Bitmap.createBitmap(
-                        getResources().getDisplayMetrics().densityDpi / 72 * page.getWidth(),
-                        getResources().getDisplayMetrics().densityDpi / 72 * page.getHeight(),
-                        Bitmap.Config.ARGB_8888
-                );
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-                page.close();
+            // PDF content image
+            ImageView imageView = new ImageView(this);
+            imageView.setImageBitmap(bitmap);
+            imageView.setAdjustViewBounds(true);
+            imageView.setAdjustViewBounds(true);
+            imageView.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
 
-                // Create page container
-                ZoomableFrameLayout zoomablePage = new ZoomableFrameLayout(this);
-                zoomablePage.setLayoutParams(new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ) {{
-                    setMargins(0, marginPx, 0, marginPx);
-                }});
-                zoomablePage.setBackgroundColor(Color.WHITE);
-
-                // Add PDF content image
-                ImageView imageView = new ImageView(this);
-                imageView.setImageBitmap(bitmap);
-                imageView.setAdjustViewBounds(true);
-                imageView.setLayoutParams(new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
-
-                // Add drawing layer
-                DrawView drawView = new DrawView(this);
-                drawView.setDrawSettingsProvider(this);
-                drawView.setDrawingEnabled(isDrawMode);
-                drawView.setLayoutParams(new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                ));
+            // Drawing overlay
+            DrawView drawView = new DrawView(this);
+            drawView.setDrawSettingsProvider(this);
+            drawView.setDrawingEnabled(isDrawMode);
+            drawView.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+            ));
 
                 // Set up touch handling for signatures
-                zoomablePage.setOnTouchListener((v, event) -> {
-                    if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                        // Check if we tapped on an existing overlay
-                        OverlayElementView tappedOverlay = findOverlayAtPosition(zoomablePage, event.getX(), event.getY());
+            zoomablePage.setOnTouchListener((v, event) -> {
+                if(blockAllActions){
+                    return false;
+                }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    OverlayElementView tappedOverlay = findOverlayAtPosition(zoomablePage, event.getX(), event.getY());
 
-                        if (selectedOverlay != null) {
-                            // If tapped outside current selection, deselect
-                            if (tappedOverlay != selectedOverlay) {
-                                deselectAllOverlays();
-                            }
-                            // If tapped on another overlay, select it
-                            if (tappedOverlay != null && tappedOverlay != selectedOverlay) {
-                                onElementSelected(tappedOverlay);
-                            }
-                            return true; // Consume the event
+                    // Case 1: If any overlay is selected
+                    if (selectedOverlay != null) {
+                        if (tappedOverlay != selectedOverlay) {
+                            // Tapped somewhere else — either empty space or another overlay
+                            deselectAllOverlays();
                         }
 
-                        // If no overlay selected and tapped empty space with signature ready
-                        if (tappedOverlay == null && selectedSignatureBitmap != null && !isDrawMode) {
+                        if (tappedOverlay != null && tappedOverlay != selectedOverlay) {
+                            onElementSelected(tappedOverlay); // Select new
+                        }
+
+                        return true;
+                    }
+
+                    // Case 2: Tap on overlay when none was selected
+                    if (tappedOverlay != null) {
+                        onElementSelected(tappedOverlay);
+                        return true;
+                    }
+
+                    // Case 3: Tap on empty space with insertion tools
+                    if (tappedOverlay == null) {
+                        if (selectedTextMode && !isDrawMode) {
+                            addTextToPage(zoomablePage, event.getX(), event.getY());
+                            return true;
+                        }
+
+                        // Other cases (signatures, checkmarks, shapes)
+                    }
+
+                    if (tappedOverlay == null) {
+                        // Signature mode
+                        if (selectedSignatureBitmap != null && !isDrawMode) {
                             addSignatureToPage(zoomablePage, event.getX(), event.getY());
                             return true;
                         }
 
-                        // If tapped on an overlay with nothing selected, select it
-                        if (tappedOverlay != null) {
-                            onElementSelected(tappedOverlay);
+                        // Checkmark mode
+                        if (isCheckmarkSelected && !isDrawMode) {
+                            addCheckmarkToPage(zoomablePage, event.getX(), event.getY());
                             return true;
                         }
+
+                        // Shape mode
+                        if (selectedShapeType != null && !isDrawMode) {
+                            addShapeToPage(zoomablePage, event.getX(), event.getY(), selectedShapeType);
+                            return true;
+                        }
+
+                        // 💡 This is the missing part:
+                        // If we tapped on empty space and nothing is being added, just deselect anything selected
+                        deselectAllOverlays();
+                        return true;
                     }
-                    return false;
-                });
-
-                // Add views to hierarchy
-                zoomablePage.addView(imageView);
-                zoomablePage.addView(drawView);
-                pageContainer.addView(zoomablePage);
-
-                // Track created views
-                zoomablePages.add(zoomablePage);
-                drawViews.add(drawView);
-            }
-            renderer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Failed to load PDF", Toast.LENGTH_SHORT).show();
-        }
-    }
-    private OverlayElementView findOverlayAtPosition(ViewGroup parent, float x, float y) {
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            View child = parent.getChildAt(i);
-            if (child instanceof OverlayElementView) {
-                if (isViewUnder(child, x, y)) {
-                    return (OverlayElementView) child;
                 }
-            }
-        }
-        return null;
+                return false;
+            });
+
+            zoomablePage.addView(imageView);
+            zoomablePage.addView(drawView);
+            zoomablePage.setClipChildren(true);
+            zoomablePage.setClipToPadding(true);
+            pageContainer.addView(zoomablePage);
+
+            zoomablePages.add(zoomablePage);
+            drawViews.add(drawView);
+        });
     }
+
     // Helper methods used in the main method
     private int dpToPx(int dp) {
         return (int) TypedValue.applyDimension(
@@ -339,19 +394,6 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
 
         return rect.contains((int)globalX, (int)globalY);
     }
-    private boolean isViewUnder(View view, MotionEvent event) {
-        if (view == null) return false;
-        int[] location = new int[2];
-        view.getLocationOnScreen(location);
-        Rect rect = new Rect(
-                location[0],
-                location[1],
-                location[0] + view.getWidth(),
-                location[1] + view.getHeight()
-        );
-        return rect.contains((int)event.getRawX(), (int)event.getRawY());
-    }
-
     private void addSignatureToPage(ViewGroup parent, float x, float y) {
         // Scale down the bitmap for initial display
         int initialWidth = (int)(selectedSignatureBitmap.getWidth() * 0.5f); // 50% of original size
@@ -384,140 +426,15 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
         overlayElements.add(signatureView);
         onElementSelected(signatureView);
     }
-    private void showSignaturePickerDialog() {
-        // Create dialog with transparent background
-        Dialog dialog = new Dialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_signature_picker, null);
-
-        // Apply margins and rounded corners
-        FrameLayout wrapper = new FrameLayout(this);
-        FrameLayout.LayoutParams wrapParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        int margin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
-        wrapParams.setMargins(margin, margin, margin, margin);
-        sheetView.setLayoutParams(wrapParams);
-
-        // Add card-like background
-        sheetView.setBackgroundResource(R.drawable.floating_dialog_background);
-        wrapper.addView(sheetView);
-        dialog.setContentView(wrapper);
-
-        // Window styling
-        Window window = dialog.getWindow();
-        if (window != null) {
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-
-            WindowManager.LayoutParams wlp = window.getAttributes();
-            wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
-            wlp.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            wlp.gravity = Gravity.BOTTOM;
-            wlp.y = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 80, getResources().getDisplayMetrics());
-            window.setAttributes(wlp);
-
-            // Add enter/exit animations
-            window.setWindowAnimations(R.style.DialogAnimation);
-        }
-
-        // Initialize views
-        RecyclerView recyclerView = sheetView.findViewById(R.id.signatureRecyclerView);
-        ImageButton btnAdd = sheetView.findViewById(R.id.btnAddSignature);
-
-        // Load signatures
-        List<File> signatures = loadSavedSignatureFiles();
-
-        // Setup adapter
-        adapter = new SignatureAdapter(signatures, selectedSignature -> {
-            selectedSignatureBitmap = selectedSignature;
-            dialog.dismiss();
-        }, (position, file) -> {
-            if (file.exists()) file.delete();
-            adapter.removeAt(position);
-            Toast.makeText(this, "Signature deleted", Toast.LENGTH_SHORT).show();
-        });
-
-        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-        recyclerView.setAdapter(adapter);
-
-        btnAdd.setOnClickListener(v -> {
-            dialog.dismiss();
-            openSignatureCreatorScreen();
-        });
-
-        dialog.show();
-    }
-    private List<File> loadSavedSignatureFiles() {
-        List<File> result = new ArrayList<>();
-        File dir = new File(getFilesDir(), "signatures");
-        if (dir.exists() && dir.isDirectory()) {
-            for (File file : dir.listFiles()) {
-                result.add(file);
+    private void cleanOrphanOverlays() {
+        Iterator<OverlayElementView> iterator = overlayElements.iterator();
+        while (iterator.hasNext()) {
+            OverlayElementView v = iterator.next();
+            if (v.getParent() == null) {
+                iterator.remove();
             }
         }
-        return result;
     }
-
-    private void showShapePickerDialog() {
-        Dialog dialog = new Dialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_shape_picker, null);
-
-        FrameLayout wrapper = new FrameLayout(this);
-        FrameLayout.LayoutParams wrapParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        int margin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
-        wrapParams.setMargins(margin, margin, margin, margin);
-        sheetView.setLayoutParams(wrapParams);
-        sheetView.setBackgroundResource(R.drawable.floating_dialog_background);
-        wrapper.addView(sheetView);
-        dialog.setContentView(wrapper);
-
-        Window window = dialog.getWindow();
-        if (window != null) {
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-
-            WindowManager.LayoutParams wlp = window.getAttributes();
-            wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
-            wlp.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            wlp.gravity = Gravity.BOTTOM;
-            wlp.y = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 80, getResources().getDisplayMetrics());
-            window.setAttributes(wlp);
-            window.setWindowAnimations(R.style.DialogAnimation);
-        }
-
-        ImageButton btnRectangle = sheetView.findViewById(R.id.btnRectangle);
-        ImageButton btnCircle = sheetView.findViewById(R.id.btnCircle);
-        ImageButton btnArrow = sheetView.findViewById(R.id.btnArrow);
-        ImageButton btnLine = sheetView.findViewById(R.id.btnLine);
-
-        View.OnClickListener shapeClickListener = v -> {
-            int id = v.getId();
-            if (id == R.id.btnRectangle) {
-                selectedShapeType = ShapeType.RECTANGLE;
-            } else if (id == R.id.btnCircle) {
-                selectedShapeType = ShapeType.CIRCLE;
-            } else if (id == R.id.btnArrow) {
-                selectedShapeType = ShapeType.ARROW;
-            } else if (id == R.id.btnLine) {
-                selectedShapeType = ShapeType.LINE;
-            }
-
-            dialog.dismiss();
-            //enableShapeDrawingMode(selectedShapeType);
-        };
-
-        btnRectangle.setOnClickListener(shapeClickListener);
-        btnCircle.setOnClickListener(shapeClickListener);
-        btnArrow.setOnClickListener(shapeClickListener);
-        btnLine.setOnClickListener(shapeClickListener);
-
-        dialog.show();
-    }
-
 
     private static final int REQUEST_SIGNATURE_CREATE = 101;
 
@@ -539,160 +456,6 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             }
         }
     }
-
-    public void addSignatureToPage(Bitmap signatureBitmap, int pageIndex) {
-        if (pageIndex < 0 || pageIndex >= zoomablePages.size()) return;
-
-        ZoomableFrameLayout page = zoomablePages.get(pageIndex);
-        SignatureElementView signatureView = new SignatureElementView(this, signatureBitmap);
-        FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        layoutParams.gravity = Gravity.CENTER;
-        signatureView.setLayoutParams(layoutParams);
-        page.addView(signatureView);
-        overlayElements.add(signatureView);
-    }
-
-    // Existing methods like showPenPopup(), showColorPicker(), etc. remain unchanged...
-    private void showPenPopup() {
-        Dialog dialog = new Dialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_pen_selector, null);
-
-// Wrap sheetView to apply margins
-        FrameLayout wrapper = new FrameLayout(this);
-        FrameLayout.LayoutParams wrapParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        int margin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics());
-        wrapParams.setMargins(margin, margin, margin, margin);
-        sheetView.setLayoutParams(wrapParams);
-        wrapper.addView(sheetView);
-
-        dialog.setContentView(wrapper);
-
-// Now handle window params
-        Window window = dialog.getWindow();
-        if (window != null) {
-            // Make background transparent to show rounded corners
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-            // Remove background dim
-            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-
-            // Align to bottom with padding from bottom
-            WindowManager.LayoutParams wlp = window.getAttributes();
-            wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
-            wlp.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            wlp.gravity = Gravity.BOTTOM;
-            wlp.y = 230; // Optional space from bottom if needed
-            window.setAttributes(wlp);
-        }
-
-
-        // Stroke Size Logic
-        TextView paintSize = sheetView.findViewById(R.id.paint_size);
-        Slider strokeSlider = sheetView.findViewById(R.id.strokeSlider);
-
-        paintSize.setText((int) globalStrokeWidth + "");
-        strokeSlider.setValue(globalStrokeWidth);
-        strokeSlider.addOnChangeListener((slider, value, fromUser) -> {
-            globalStrokeWidth = value;
-            paintSize.setText("" + (int) globalStrokeWidth);
-        });
-
-        // Color Picker Logic
-        LinearLayout colorRow = sheetView.findViewById(R.id.colorRow);
-        int[] colors = new int[]{
-                Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA
-        };
-
-        final int[] selectedColor = {globalPaintColor};
-        colorRow.removeAllViews();
-
-        for (int color : colors) {
-            View colorCircle = new View(this);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(72, 72); // slightly bigger
-            params.setMargins(16, 8, 16, 8);
-
-            colorCircle.setLayoutParams(params);
-            colorCircle.setTag(color);
-
-            if (color == selectedColor[0]) {
-                tintSelectedColorCircle(colorCircle, color);
-            } else {
-                tintUnselectedColorCircle(colorCircle, color);
-            }
-
-            colorCircle.setOnClickListener(v -> {
-                selectedColor[0] = (int) v.getTag();
-                globalPaintColor = selectedColor[0];
-                updateDrawToolColorIndicator(globalPaintColor);
-
-                // Update all color buttons
-                for (int i = 0; i < colorRow.getChildCount(); i++) {
-                    View c = colorRow.getChildAt(i);
-                    int cColor = (int) c.getTag();
-                    if (cColor == selectedColor[0]) {
-                        tintSelectedColorCircle(c, cColor);
-                    } else {
-                        tintUnselectedColorCircle(c, cColor);
-                    }
-                }
-            });
-
-            colorRow.addView(colorCircle);
-        }
-
-        dialog.show();
-    }
-    private void showColorPicker() {
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_color_picker, null);
-        LinearLayout container = view.findViewById(R.id.colorPickerContainer);
-
-        int[] colors = {
-                Color.BLACK, Color.RED, Color.GREEN, Color.BLUE,
-                Color.YELLOW, Color.CYAN, Color.MAGENTA, Color.GRAY
-        };
-
-        int size = (int) getResources().getDisplayMetrics().density * 48; // 48dp
-        int margin = (int) getResources().getDisplayMetrics().density * 8;
-
-        for (int color : colors) {
-            View circle = new View(this);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(size, size);
-            params.setMargins(margin, 0, margin, 0);
-            circle.setLayoutParams(params);
-            circle.setBackground(createCircleDrawable(color));
-
-            circle.setOnClickListener(v -> {
-                currentDrawColor = color;
-
-//                // Update drawViews to use the new color
-//                for (DrawView drawView : drawViews) {
-//                    drawView.setPaintColor(currentDrawColor);
-//                }
-
-                dialog.dismiss();
-            });
-
-            container.addView(circle);
-        }
-
-        dialog.setContentView(view);
-        dialog.show();
-    }
-    private Drawable createCircleDrawable(int color) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setShape(GradientDrawable.OVAL);
-        drawable.setColor(color);
-        drawable.setSize(100, 100); // size in pixels
-        drawable.setStroke(3, Color.LTGRAY);
-        return drawable;
-    }
     private void updateDrawToolColorIndicator(int color) {
         if (drawToolIconView != null && drawToolIconView.getDrawable() instanceof LayerDrawable) {
             LayerDrawable layerDrawable = (LayerDrawable) drawToolIconView.getDrawable();
@@ -703,39 +466,14 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             }
         }
     }
-    private void tintSelectedColorCircle(View view, int color) {
-        view.setBackgroundResource(R.drawable.bg_color_circle_selected);
-        Drawable bg = view.getBackground();
 
-        if (bg instanceof LayerDrawable) {
-            LayerDrawable layerDrawable = (LayerDrawable) bg;
-
-            // Set inner solid circle (normal color)
-            Drawable inner = layerDrawable.findDrawableByLayerId(R.id.bg_inner_circle);
-            if (inner instanceof GradientDrawable) {
-                ((GradientDrawable) inner).setColor(color);
-            }
-
-            // Set outer ring with lighter transparent color
-            Drawable outer = layerDrawable.findDrawableByLayerId(R.id.bg_outer_ring);
-            if (outer instanceof GradientDrawable) {
-                int transparentColor = ColorUtils.setAlphaComponent(color, 80); // 80/255 ≈ 31% opacity
-                ((GradientDrawable) outer).setColor(transparentColor);
-            }
-        }
-    }
-    private void tintUnselectedColorCircle(View view, int color) {
-        view.setBackgroundResource(R.drawable.bg_color_circle);
-        Drawable bg = view.getBackground();
-        if (bg != null) {
-            bg.setTint(color);
-        }
-    }
+    //signature overlay methods
     private OverlayElementView selectedOverlay = null;
 
     public void onElementSelected(OverlayElementView element) {
         if (selectedOverlay != null && selectedOverlay != element) {
             selectedOverlay.setSelectedState(false);
+            hideElementToolbar();
         }
 
         selectedOverlay = element;
@@ -746,246 +484,122 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             selectedOverlay.setSelectedState(false);
             selectedOverlay = null;
         }
+        hideElementToolbar();
     }
     public void removeOverlayElement(OverlayElementView element) {
         for (ZoomableFrameLayout page : zoomablePages) {
             page.removeView(element);
         }
         overlayElements.remove(element);
+        hideElementToolbar();
     }
+    private OverlayElementView findOverlayAtPosition(ViewGroup parent, float x, float y) {
+        int[] containerLocation = new int[2];
+        parent.getLocationOnScreen(containerLocation);
+        float globalX = x + containerLocation[0];
+        float globalY = y + containerLocation[1];
 
-
-}
-
-//
-/*
-public class PdfEditorActivity extends AppCompatActivity implements DrawSettingsProvider{
-    private int globalPaintColor = Color.BLACK;
-    private float globalStrokeWidth = 1f;
-    private ImageView drawToolIconView;  // Add this as a field
-    private Bitmap selectedSignatureBitmap = null;
-
-
-    private final List<ZoomableFrameLayout> zoomablePages = new ArrayList<>();
-
-    private int currentDrawColor = Color.BLACK; // default
-
-    private Uri pdfUri;
-    private boolean isEditable;
-    private LinearLayout pageContainer;
-    private boolean isDrawMode = false;
-    private ImageButton drawButton;
-    private List<DrawView> drawViews = new ArrayList<>();
-
-    private LinearLayout toolContainer;
-    private int selectedToolIndex = -1;
-
-    @Override
-    public int getCurrentPaintColor() {
-        return globalPaintColor;
-    }
-
-    @Override
-    public float getCurrentStrokeWidth() {
-        return globalStrokeWidth;
-    }
-
-    private enum ToolType {
-        DRAW, UNDO, REDO, COLOR, SHAPE, SIGNATURE, COMMENT
-    }
-    private int[] toolIcons = {
-            R.drawable.ic_pencil, R.drawable.ic_undo, R.drawable.ic_redo,
-            R.drawable.ic_palette, R.drawable.ic_shape, R.drawable.ic_signature, R.drawable.ic_comment
-    };
-
-    private ToolType[] tools = {
-            ToolType.DRAW, ToolType.UNDO, ToolType.REDO, ToolType.COLOR, ToolType.SHAPE, ToolType.SIGNATURE, ToolType.COMMENT
-    };
-
-    private void setupToolbar() {
-        toolContainer = findViewById(R.id.toolContainer);
-        LayoutInflater inflater = LayoutInflater.from(this);
-
-        for (int i = 0; i < tools.length; i++) {
-            View toolItem = inflater.inflate(R.layout.item_tool_button, toolContainer, false);
-            ImageView btnTool = toolItem.findViewById(R.id.btnTool);
-            btnTool.setImageResource(toolIcons[i]);
-            if (tools[i] == ToolType.DRAW) {
-                drawToolIconView = btnTool; // store reference
-            }
-            int index = i;
-            toolItem.setOnClickListener(v -> handleToolSelection(index));
-
-            toolContainer.addView(toolItem);
-        }
-    }
-
-    private void handleToolSelection(int index) {
-        View tapped = toolContainer.getChildAt(index);
-
-        // If the same tool is tapped again, popup if applicable
-        if (selectedToolIndex == index) {
-            if (!drawViews.isEmpty() && index==0) {
-                showPenPopup();
-                return;
+        for (int i = parent.getChildCount() - 1; i >= 0; i--) { // Topmost view first
+            View child = parent.getChildAt(i);
+            if (child instanceof OverlayElementView) {
+                OverlayElementView overlay = (OverlayElementView) child;
+                if (overlay.hitTest(globalX, globalY)) {
+                    return overlay;
+                }
             }
         }
-
-        // Deselect previous
-        if (selectedToolIndex != -1) {
-            View prev = toolContainer.getChildAt(selectedToolIndex);
-            prev.setSelected(false);
-        }
-
-        // Select new
-        tapped.setSelected(true);
-        selectedToolIndex = index;
-
-        ToolType selectedTool = tools[index];
-        switch (selectedTool) {
-            case DRAW:
-                isDrawMode = true;
-                for (DrawView dv : drawViews) {
-                    dv.setDrawingEnabled(true);
-                }
-                break;
-
-            case COLOR:
-                showColorPicker();
-                break;
-            case UNDO:
-                for (DrawView dv : drawViews) {
-                    if (dv.isShown()) {
-                        dv.undo();
-                    }
-                }
-                break;
-
-            case REDO:
-                for (DrawView dv : drawViews) {
-                    if (dv.isShown()) {
-                        dv.redo();
-                    }
-                }
-                break;
-            case SHAPE:
-                isDrawMode = !isDrawMode;
-                for (DrawView drawView : drawViews) {
-                    drawView.setDrawingEnabled(isDrawMode); // ✅ ENABLES DRAWING!
-                }
-break;
-            case SIGNATURE:
-                showSignaturePickerBottomSheet();
-            // Handle other tools...
-        }
+        return null;
     }
 
 
+    public void showShapeContextMenu(ShapeElementView shapeView) {
+        PopupMenu popup = new PopupMenu(this, shapeView); // or use an anchor view
+        popup.getMenuInflater().inflate(R.menu.shape_context_menu, popup.getMenu());
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_pdf_editor);
+        popup.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
 
-        pdfUri = Uri.parse(getIntent().getStringExtra("pdfUri"));
-        isEditable = getIntent().getBooleanExtra("isEditable", false);
-
-        pageContainer = findViewById(R.id.pageContainer);
-        drawButton = findViewById(R.id.drawButton);
-        pageContainer.setBackgroundColor(Color.parseColor("#EEEEEE")); // light gray background
-
-        drawButton.setOnClickListener(v -> {
-            isDrawMode = !isDrawMode;
-
-            // Toggle button UI
-            if (isDrawMode) {
-                drawButton.setBackgroundResource(R.drawable.bg_draw_button_active);
-                Toast.makeText(this, "Drawing enabled", Toast.LENGTH_SHORT).show();
-            } else {
-                drawButton.setBackgroundResource(R.drawable.bg_draw_button_inactive);
-                Toast.makeText(this, "Drawing disabled", Toast.LENGTH_SHORT).show();
+            if(id ==R.id.menu_change_color ) {
+                openColorPickerDialog(shapeView);
+                return true;
             }
 
-            // Update all DrawViews
-            // Update all DrawViews
-            for (DrawView drawView : drawViews) {
-                drawView.setDrawingEnabled(isDrawMode); // ✅ ENABLES DRAWING!
+            if(id ==R.id.menu_change_stroke ) {
+                openStrokeWidthDialog(shapeView);
+                return true;
             }
+            return false;
 
         });
-        setupToolbar();
-        renderAllPdfPages(pdfUri);
+
+        popup.show();
     }
 
-//hihi
-    private void renderAllPdfPages(Uri uri) {
-    try {
-        ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
-        if (pfd != null) {
-            PdfRenderer renderer = new PdfRenderer(pfd);
-            int pageCount = renderer.getPageCount();
+    private void openColorPickerDialog(ShapeElementView shapeView) {
+    }
 
-            int marginPx = (int) TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_DIP,
-                    12,
-                    getResources().getDisplayMetrics()
-            );
+    private void openStrokeWidthDialog(ShapeElementView shape) {
+        SeekBar seekBar = new SeekBar(this);
+        seekBar.setMax(50);
+        seekBar.setProgress((int) shape.getStrokeWidth());
 
-            for (int i = 0; i < pageCount; i++) {
-                PdfRenderer.Page page = renderer.openPage(i);
-                int width = getResources().getDisplayMetrics().densityDpi / 72 * page.getWidth();
-                int height = getResources().getDisplayMetrics().densityDpi / 72 * page.getHeight();
+        new AlertDialog.Builder(this)
+                .setTitle("Select Stroke Width")
+                .setView(seekBar)
+                .setPositiveButton("OK", (dialog, which) -> {
+                    shape.setStrokeWidth(seekBar.getProgress());
+                })
+                .show();
+    }
+    public void showShapeToolbar(final OverlayElementView elementView) {
+        FrameLayout overlay = findViewById(R.id.overlay_container);
 
-                Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-                page.close();
+        // Remove existing toolbar
+        overlay.removeView(findViewById(R.id.element_toolbar));
 
-                // Create Zoomable layout per page
-                ZoomableFrameLayout zoomablePage = new ZoomableFrameLayout(this);
-                LinearLayout.LayoutParams zoomParams = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-                zoomParams.setMargins(0, marginPx, 0, marginPx); // Add gap between pages
-                zoomablePage.setLayoutParams(zoomParams);
-                zoomablePage.setBackgroundColor(Color.WHITE); // Each page is white
+        View toolbar = LayoutInflater.from(this).inflate(R.layout.view_element_toolbar, overlay, false);
 
-                // Add PDF image
-                ImageView imageView = new ImageView(this);
-                imageView.setImageBitmap(bitmap);
-                imageView.setAdjustViewBounds(true);
-                imageView.setLayoutParams(new FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.WRAP_CONTENT
-                ));
+        // Set visibility based on element type
+//        toolbar.findViewById(R.id.btn_text_size).setVisibility(
+//                elementView instanceof TextElementView ? View.VISIBLE : View.GONE
+//        );
 
-                // Add DrawView overlay
-                DrawView drawView = new DrawView(this);
-                drawView.setDrawSettingsProvider(this);
-                drawView.setDrawingEnabled(isDrawMode);
-                drawView.setLayoutParams(new FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT
-                ));
+        // Setup listeners
+        toolbar.findViewById(R.id.btn_color).setOnClickListener(v -> {
+            showColorPicker(elementView);
+        });
 
-                // Combine views
-                zoomablePage.addView(imageView);
-                zoomablePage.addView(drawView);
-                pageContainer.addView(zoomablePage);
+        toolbar.findViewById(R.id.btn_stroke).setOnClickListener(v -> {
+            openStrokeWidthDialog((ShapeElementView) elementView);
+        });
 
-                zoomablePages.add(zoomablePage);
-                drawViews.add(drawView); // for undo/redo/toggle
-            }
+        toolbar.findViewById(R.id.btn_text_size).setOnClickListener(v -> {
+            //showTextSizeDialog((TextElementView) elementView);
+        });
 
-            renderer.close();
+        // Position toolbar near element
+        int[] location = new int[2];
+        elementView.getLocationOnScreen(location);
+
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+
+        lp.leftMargin = location[0];
+        lp.topMargin = location[1] - dpToPx(100); // Slightly above element
+        toolbar.setLayoutParams(lp);
+
+        overlay.addView(toolbar);
+    }
+    public void hideElementToolbar() {
+        FrameLayout overlay = findViewById(R.id.overlay_container);
+        View toolbar = overlay.findViewById(R.id.element_toolbar);
+        if (toolbar != null) {
+            overlay.removeView(toolbar);
         }
-    } catch (IOException e) {
-        e.printStackTrace();
-        Toast.makeText(this, "Failed to load PDF", Toast.LENGTH_SHORT).show();
     }
-}
-
-    private void showColorPicker() {
+    private void showColorPicker(OverlayElementView shape) {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         View view = getLayoutInflater().inflate(R.layout.bottom_sheet_color_picker, null);
         LinearLayout container = view.findViewById(R.id.colorPickerContainer);
@@ -1004,9 +618,8 @@ break;
             params.setMargins(margin, 0, margin, 0);
             circle.setLayoutParams(params);
             circle.setBackground(createCircleDrawable(color));
-
             circle.setOnClickListener(v -> {
-                currentDrawColor = color;
+                shape.setColor(color);
 
 //                // Update drawViews to use the new color
 //                for (DrawView drawView : drawViews) {
@@ -1030,216 +643,55 @@ break;
         drawable.setStroke(3, Color.LTGRAY);
         return drawable;
     }
-    private void showPenPopup() {
-        Dialog dialog = new Dialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_pen_selector, null);
+    private void addCheckmarkToPage(ViewGroup page, float x, float y) {
+        CheckmarkElementView checkmark = new CheckmarkElementView(this);
+        int size = dpToPx(100);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
+        checkmark.setLayoutParams(lp);
 
-// Wrap sheetView to apply margins
-        FrameLayout wrapper = new FrameLayout(this);
-        FrameLayout.LayoutParams wrapParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        int margin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics());
-        wrapParams.setMargins(margin, margin, margin, margin);
-        sheetView.setLayoutParams(wrapParams);
-        wrapper.addView(sheetView);
+        checkmark.setX(x - size / 2f); // Center it on touch
+        checkmark.setY(y - size / 2f);
 
-        dialog.setContentView(wrapper);
-
-// Now handle window params
-        Window window = dialog.getWindow();
-        if (window != null) {
-            // Make background transparent to show rounded corners
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-            // Remove background dim
-            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-
-            // Align to bottom with padding from bottom
-            WindowManager.LayoutParams wlp = window.getAttributes();
-            wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
-            wlp.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            wlp.gravity = Gravity.BOTTOM;
-            wlp.y = 230; // Optional space from bottom if needed
-            window.setAttributes(wlp);
-        }
-
-
-        // Stroke Size Logic
-        TextView paintSize = sheetView.findViewById(R.id.paint_size);
-        Slider strokeSlider = sheetView.findViewById(R.id.strokeSlider);
-
-        paintSize.setText((int) globalStrokeWidth + "");
-        strokeSlider.setValue(globalStrokeWidth);
-        strokeSlider.addOnChangeListener((slider, value, fromUser) -> {
-            globalStrokeWidth = value;
-            paintSize.setText("" + (int) globalStrokeWidth);
-        });
-
-        // Color Picker Logic
-        LinearLayout colorRow = sheetView.findViewById(R.id.colorRow);
-        int[] colors = new int[]{
-                Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA
-        };
-
-        final int[] selectedColor = {globalPaintColor};
-        colorRow.removeAllViews();
-
-        for (int color : colors) {
-            View colorCircle = new View(this);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(72, 72); // slightly bigger
-            params.setMargins(16, 8, 16, 8);
-
-            colorCircle.setLayoutParams(params);
-            colorCircle.setTag(color);
-
-            if (color == selectedColor[0]) {
-                tintSelectedColorCircle(colorCircle, color);
-            } else {
-                tintUnselectedColorCircle(colorCircle, color);
-            }
-
-            colorCircle.setOnClickListener(v -> {
-                selectedColor[0] = (int) v.getTag();
-                globalPaintColor = selectedColor[0];
-                updateDrawToolColorIndicator(globalPaintColor);
-
-                // Update all color buttons
-                for (int i = 0; i < colorRow.getChildCount(); i++) {
-                    View c = colorRow.getChildAt(i);
-                    int cColor = (int) c.getTag();
-                    if (cColor == selectedColor[0]) {
-                        tintSelectedColorCircle(c, cColor);
-                    } else {
-                        tintUnselectedColorCircle(c, cColor);
-                    }
-                }
-            });
-
-            colorRow.addView(colorCircle);
-        }
-
-        dialog.show();
-    }
-    private void updateDrawToolColorIndicator(int color) {
-        if (drawToolIconView != null && drawToolIconView.getDrawable() instanceof LayerDrawable) {
-            LayerDrawable layerDrawable = (LayerDrawable) drawToolIconView.getDrawable();
-            Drawable colorLayer = layerDrawable.findDrawableByLayerId(R.id.color_line_layer);
-
-            if (colorLayer instanceof GradientDrawable) {
-                ((GradientDrawable) colorLayer).setColor(color);
-            }
-        }
-    }
-    private void tintSelectedColorCircle(View view, int color) {
-        view.setBackgroundResource(R.drawable.bg_color_circle_selected);
-        Drawable bg = view.getBackground();
-
-        if (bg instanceof LayerDrawable) {
-            LayerDrawable layerDrawable = (LayerDrawable) bg;
-
-            // Set inner solid circle (normal color)
-            Drawable inner = layerDrawable.findDrawableByLayerId(R.id.bg_inner_circle);
-            if (inner instanceof GradientDrawable) {
-                ((GradientDrawable) inner).setColor(color);
-            }
-
-            // Set outer ring with lighter transparent color
-            Drawable outer = layerDrawable.findDrawableByLayerId(R.id.bg_outer_ring);
-            if (outer instanceof GradientDrawable) {
-                int transparentColor = ColorUtils.setAlphaComponent(color, 80); // 80/255 ≈ 31% opacity
-                ((GradientDrawable) outer).setColor(transparentColor);
-            }
-        }
-    }
-    private void tintUnselectedColorCircle(View view, int color) {
-        view.setBackgroundResource(R.drawable.bg_color_circle);
-        Drawable bg = view.getBackground();
-        if (bg != null) {
-            bg.setTint(color);
-        }
-    }
-    private void showSignaturePickerBottomSheet() {
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_signature_picker, null);
-        RecyclerView recyclerView = view.findViewById(R.id.signatureRecyclerView);
-        ImageButton btnAdd = view.findViewById(R.id.btnAddSignature);
-
-        // Load signatures from local storage
-        List<Bitmap> signatures = loadSavedSignatures();
-
-        SignatureAdapter adapter = new SignatureAdapter(signatures, selectedSignature -> {
-            selectedSignatureBitmap = selectedSignature;
-            addSignatureToPage(selectedSignature,0);
-            dialog.dismiss();
-            // 🔥 Add to PDF now or pass to a handler
-            //addSignatureToPdf(selectedSignature);
-        });
-
-        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-        recyclerView.setAdapter(adapter);
-
-        btnAdd.setOnClickListener(v -> {
-            dialog.dismiss();
-            openSignatureCreatorScreen();
-        });
-
-        dialog.setContentView(view);
-        dialog.show();
-    }
-    private List<Bitmap> loadSavedSignatures() {
-        List<Bitmap> result = new ArrayList<>();
-        File dir = new File(getFilesDir(), "signatures");
-
-        if (dir.exists() && dir.isDirectory()) {
-            for (File file : dir.listFiles()) {
-                Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-                if (bitmap != null) {
-                    result.add(bitmap);
-                }
-            }
-        }
-
-        return result;
+        page.addView(checkmark);
+        overlayElements.add(checkmark); // For undo/selection tracking
+        onElementSelected(checkmark);
     }
 
-    private static final int REQUEST_SIGNATURE_CREATE = 101;
+    public void addTextToPage(ViewGroup page, float x, float y) {
+        String initialText = "Enter text"; // Or insert formatted date if date mode
+        int defaultColor = Color.BLACK;
+        float defaultSizeSp = 18f;
 
-    private void openSignatureCreatorScreen() {
-        Intent intent = new Intent(this, SignatureCreatorActivity.class);
-        startActivityForResult(intent, REQUEST_SIGNATURE_CREATE);
+        TextElementView textElement = new TextElementView(this, initialText, defaultColor, defaultSizeSp);
+
+        int initialWidth = dpToPx(150);
+        int initialHeight = dpToPx(60);
+        ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(initialWidth, initialHeight);
+        textElement.setLayoutParams(layoutParams);
+
+        page.addView(textElement);
+
+        // Offset to center the touch point
+        textElement.setX(x - initialWidth / 2f);
+        textElement.setY(y - initialHeight / 2f);
+
+        textElement.setSelectedState(true);
+        onElementSelected(textElement);
+        showTextEditDialog(textElement);
     }
+    private void showTextEditDialog(TextElementView textView) {
+        EditText editText = new EditText(this);
+        editText.setText(textView.getText().toString());
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_SIGNATURE_CREATE && resultCode == RESULT_OK && data != null) {
-            String path = data.getStringExtra("signaturePath");
-            if (path != null) {
-                // Add this image as a movable/resizable signature on PDF
-                //insertSignatureFromPath(path);
-            }
-        }
-    }
-
-    public void addSignatureToPage(Bitmap signatureBitmap, int pageIndex) {
-        if (pageIndex < 0 || pageIndex >= zoomablePages.size()) return;
-
-        ZoomableFrameLayout page = zoomablePages.get(pageIndex);
-        SignatureElementView signatureView = new SignatureElementView(this, signatureBitmap);
-
-        // Add to center initially
-        FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        layoutParams.gravity = Gravity.CENTER;
-        signatureView.setLayoutParams(layoutParams);
-
-        page.addView(signatureView);
+        new AlertDialog.Builder(this)
+                .setTitle("Edit Text")
+                .setView(editText)
+                .setPositiveButton("OK", (dialog, which) -> {
+                    textView.setText(editText.getText().toString());
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
 
 }
-*/

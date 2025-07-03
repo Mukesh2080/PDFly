@@ -1,6 +1,7 @@
 package com.mukesh.pdfly.signature.views;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -89,6 +90,9 @@ public abstract class OverlayElementView extends FrameLayout {
         applyTransformations();
     }
 
+    public void setColor(int color) {
+    }
+
     // Gesture Listeners
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
         @Override
@@ -105,4 +109,13 @@ public abstract class OverlayElementView extends FrameLayout {
             return true;
         }
     }
+    public boolean hitTest(float globalX, float globalY) {
+        int[] location = new int[2];
+        getLocationOnScreen(location);
+        Rect rect = new Rect(location[0], location[1],
+                location[0] + getWidth(),
+                location[1] + getHeight());
+        return rect.contains((int) globalX, (int) globalY);
+    }
+
 }

@@ -1,19 +1,34 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- PDF Scroll Content -->
     <ScrollView
         android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true">
-            <LinearLayout
+
+        <LinearLayout
             android:id="@+id/pageContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:clipChildren="true"
+            android:clipToPadding="true"
             android:padding="8dp"/>
     </ScrollView>
+
+    <!-- Floating Toolbar Overlay Container (New) -->
+    <FrameLayout
+        android:id="@+id/overlay_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignTop="@id/scrollView"
+        android:layout_alignBottom="@id/scrollView"
+        android:clickable="false"
+        android:focusable="false" />
 
     <!-- Draw toggle button -->
     <ImageButton
@@ -26,13 +41,13 @@
         android:background="@drawable/bg_draw_button_inactive"
         android:src="@drawable/ic_baseline_brush_24" />
 
+    <!-- Bottom Tool Strip -->
     <HorizontalScrollView
         android:id="@+id/toolScrollView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:fillViewport="true"
-        android:layout_margin="10dp"
         android:scrollbars="none"
         android:background="@drawable/bg_pen_popup_rounded"
         android:padding="8dp">

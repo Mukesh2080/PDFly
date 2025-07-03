@@ -1,0 +1,35 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/element_toolbar"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:background="@drawable/bg_pen_popup_rounded"
+    android:elevation="6dp">
+
+    <ImageButton
+        android:id="@+id/btn_color"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_palette"
+        android:contentDescription="Change Color" />
+
+    <ImageButton
+        android:id="@+id/btn_stroke"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/line_weight_24dp"
+        android:contentDescription="Change Stroke" />
+
+    <ImageButton
+        android:id="@+id/btn_text_size"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_draw"
+        android:contentDescription="Text Size"
+        android:visibility="gone" /> <!-- Show only for text -->
+
+</LinearLayout>

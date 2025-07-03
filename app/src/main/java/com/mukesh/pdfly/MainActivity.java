@@ -46,8 +46,9 @@ public class MainActivity extends AppCompatActivity {
 
             // Open the editor
             Intent intent = new Intent(this, PdfEditorActivity.class);
-            intent.putExtra("pdfUri", pdfUri.toString());
-            intent.putExtra("isEditable", true); // or false for read-only mode
+            intent.setData(pdfUri);
+//            intent.putExtra("pdfUri", pdfUri.toString());
+//            intent.putExtra("isEditable", true); // or false for read-only mode
             startActivity(intent);
         }
     }
