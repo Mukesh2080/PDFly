@@ -10,4 +10,5 @@
     <color name="color_black">#000000</color>
     <color name="color_purple">#9C27B0</color>
     <color name="color_teal">#009688</color>
+    <color name="light_grey">#EEEEEE</color> <!-- Or any light grey you prefer -->
 </resources>

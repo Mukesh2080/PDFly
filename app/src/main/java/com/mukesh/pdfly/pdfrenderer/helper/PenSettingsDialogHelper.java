@@ -2,7 +2,7 @@ package com.mukesh.pdfly.pdfrenderer.helper;
 import android.app.Dialog;
 
 import com.google.android.material.slider.Slider;
-import com.mukesh.pdfly.pdfrenderer.activity.PdfEditorActivity;
+
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;

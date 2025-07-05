@@ -1,38 +1,25 @@
-package com.mukesh.pdfly.pdfrenderer.helper;
-
-import static androidx.core.util.TypedValueCompat.dpToPx;
+package com.mukesh.pdfly.pdfrenderer.views;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
-import android.graphics.Point;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
-import android.view.View;
 import android.view.ViewGroup;
-import android.widget.PopupMenu;
-import android.widget.SeekBar;
 
 import androidx.annotation.DrawableRes;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.graphics.drawable.DrawableCompat;
 
 import com.mukesh.pdfly.R;
 import com.mukesh.pdfly.pdfrenderer.activity.PdfEditorActivity;
 import com.mukesh.pdfly.signature.views.OverlayElementView;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class ShapeElementView extends OverlayElementView {
     private PdfEditorActivity.ShapeType shapeType;
@@ -245,6 +232,10 @@ public class ShapeElementView extends OverlayElementView {
                     } else {
                         setX(event.getRawX() - dX);
                         setY(event.getRawY() - dY);
+                        if (getContext() instanceof PdfEditorActivity) {
+                            ((PdfEditorActivity) getContext()).updateToolbarPosition(ShapeElementView.this);
+                        }
+
                     }
                     break;
 
@@ -298,6 +289,18 @@ public class ShapeElementView extends OverlayElementView {
     @Override
     public void setColor(int color) {
         shapePaint.setColor(color);
+        invalidate();
+    }
+
+    @Override
+    public void increaseSize() {
+        shapePaint.setStrokeWidth(getStrokeWidth() + 2f);
+        invalidate();
+    }
+
+    @Override
+    public void decreaseSize() {
+        shapePaint.setStrokeWidth(getStrokeWidth() + 2f);
         invalidate();
     }
 

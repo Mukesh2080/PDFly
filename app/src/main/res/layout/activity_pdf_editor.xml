@@ -20,7 +20,7 @@
             android:padding="8dp"/>
     </ScrollView>
 
-    <!-- Floating Toolbar Overlay Container (New) -->
+    <!-- Floating Toolbar Overlay -->
     <FrameLayout
         android:id="@+id/overlay_container"
         android:layout_width="match_parent"
@@ -41,12 +41,13 @@
         android:background="@drawable/bg_draw_button_inactive"
         android:src="@drawable/ic_baseline_brush_24" />
 
-    <!-- Bottom Tool Strip -->
+    <!-- Bottom Tool Strip with margin -->
     <HorizontalScrollView
         android:id="@+id/toolScrollView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
+        android:layout_marginBottom="16dp"
         android:fillViewport="true"
         android:scrollbars="none"
         android:background="@drawable/bg_pen_popup_rounded"
@@ -59,5 +60,4 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"/>
     </HorizontalScrollView>
-
 </RelativeLayout>

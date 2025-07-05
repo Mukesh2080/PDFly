@@ -1,4 +1,4 @@
-package com.mukesh.pdfly.pdfrenderer.helper;
+package com.mukesh.pdfly.pdfrenderer.views;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -82,8 +83,10 @@ public class TextElementView extends OverlayElementView {
     }
 
     @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
+    protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas); // Draw the child views first
+
+        if (!isSelected) return;
 
         int w = getWidth();
         int h = getHeight();
@@ -91,27 +94,27 @@ public class TextElementView extends OverlayElementView {
         canvas.save();
         canvas.rotate(rotationAngle, w / 2f, h / 2f);
 
-        if (isSelected) {
-            canvas.drawRect(0, 0, w, h, selectionPaint);
+        canvas.drawRect(0, 0, w, h, selectionPaint);
 
-            int iconSize = dpToPx(24);
-            Drawable bgDrawable = AppCompatResources.getDrawable(getContext(), R.drawable.circle_button_bg);
+        int iconSize = dpToPx(24);
+        Drawable bgDrawable = AppCompatResources.getDrawable(getContext(), R.drawable.circle_button_bg);
 
-            deleteHandleRect = new Rect(0, 0, iconSize, iconSize);
-            drawHandle(canvas, deleteHandleRect, deleteIcon, bgDrawable);
+        deleteHandleRect = new Rect(0, 0, iconSize, iconSize);
+        drawHandle(canvas, deleteHandleRect, deleteIcon, bgDrawable);
 
-            rotateHandleRect = new Rect(w - iconSize, 0, w, iconSize);
-            drawHandle(canvas, rotateHandleRect, rotateIcon, bgDrawable);
+        rotateHandleRect = null; // You’ve hidden this already
+//    rotateHandleRect = new Rect(w - iconSize, 0, w, iconSize);
+//    drawHandle(canvas, rotateHandleRect, rotateIcon, bgDrawable);
 
-            resizeHandleRect = new Rect(w - iconSize, h - iconSize, w, h);
-            drawHandle(canvas, resizeHandleRect, resizeIcon, bgDrawable);
+        resizeHandleRect = new Rect(w - iconSize, h - iconSize, w, h);
+        drawHandle(canvas, resizeHandleRect, resizeIcon, bgDrawable);
 
-            menuHandleRect = new Rect(0, h - iconSize, iconSize, h);
-            drawHandle(canvas, menuHandleRect, menuIcon, bgDrawable);
-        }
+        menuHandleRect = new Rect(0, h - iconSize, iconSize, h);
+        drawHandle(canvas, menuHandleRect, menuIcon, bgDrawable);
 
         canvas.restore();
     }
+
 
     private void drawHandle(Canvas canvas, Rect rect, Bitmap icon, Drawable bg) {
         bg.setBounds(rect);
@@ -158,7 +161,7 @@ public class TextElementView extends OverlayElementView {
                     if (isResizing) {
                         int newWidth = (int) x;
                         int newHeight = (int) y;
-                        int minSize = dpToPx(50) + (2 * selectionPaddingPx);
+                        int minSize = dpToPx(10) + (2 * selectionPaddingPx);
 
                         newWidth = Math.max(minSize, newWidth);
                         newHeight = Math.max(minSize, newHeight);
@@ -182,6 +185,9 @@ public class TextElementView extends OverlayElementView {
                         }
                         setX(event.getRawX() - dX);
                         setY(event.getRawY() - dY);
+                        if (getContext() instanceof PdfEditorActivity) {
+                            ((PdfEditorActivity) getContext()).updateToolbarPosition(TextElementView.this);
+                        }
                     }
                     break;
 
@@ -230,6 +236,7 @@ public class TextElementView extends OverlayElementView {
         textView.setTextColor(color);
     }
 
+
     public void setSize(float sp) {
         textView.setTextSize(sp);
     }
@@ -247,6 +254,79 @@ public class TextElementView extends OverlayElementView {
 
     public String getText() {
         return textView.getText().toString();
+    }
+
+    public float getTextSize() {
+        return textView.getTextSize();
+    }
+
+    private static final float MIN_TEXT_SIZE = 8f; // Minimum text size in sp
+    private static final float MAX_TEXT_SIZE = 72f; // Maximum text size in sp
+    private static final float SIZE_INCREMENT = 2f; // Size change step
+
+    @Override
+    public void increaseSize() {
+        float currentSize = getTextSize();
+        float newSize = currentSize + SIZE_INCREMENT;
+
+        if (newSize <= MAX_TEXT_SIZE) {
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, newSize);
+            invalidate();
+        } else {
+            // Optional: Show message or visual feedback when max size reached
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, MAX_TEXT_SIZE);
+            invalidate();
+        }
+    }
+
+    @Override
+    public void decreaseSize() {
+        float currentSize = getTextSize();
+        float newSize = currentSize - SIZE_INCREMENT;
+
+        if (newSize >= MIN_TEXT_SIZE) {
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, newSize);
+            invalidate();
+        } else {
+            // Optional: Show message or visual feedback when min size reached
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, MIN_TEXT_SIZE);
+            invalidate();
+        }
+    }
+
+    // Toggle bold style
+    public void setBold(boolean enable) {
+        textView.setTypeface(null, enable ? Typeface.BOLD : Typeface.NORMAL);
+        invalidate();
+    }
+
+    // Toggle underline
+    public void setUnderline(boolean enable) {
+        textView.setPaintFlags(enable ?
+                textView.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG :
+                textView.getPaintFlags() & ~Paint.UNDERLINE_TEXT_FLAG);
+        invalidate();
+    }
+
+    // Toggle strikethrough
+    public void setStrikethrough(boolean enable) {
+        textView.setPaintFlags(enable ?
+                textView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG :
+                textView.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG);
+        invalidate();
+    }
+
+    // Get current style states
+    public boolean isBold() {
+        return textView.getTypeface() != null && textView.getTypeface().isBold();
+    }
+
+    public boolean isUnderline() {
+        return (textView.getPaintFlags() & Paint.UNDERLINE_TEXT_FLAG) != 0;
+    }
+
+    public boolean isStrikethrough() {
+        return (textView.getPaintFlags() & Paint.STRIKE_THRU_TEXT_FLAG) != 0;
     }
 }
 

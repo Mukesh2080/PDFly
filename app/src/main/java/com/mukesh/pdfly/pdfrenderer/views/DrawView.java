@@ -1,6 +1,7 @@
 package com.mukesh.pdfly.pdfrenderer.views;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
@@ -152,5 +153,16 @@ public class DrawView extends View {
         }
 
         return false;
+    }
+
+    public Bitmap getBitmap() {
+        // Create a bitmap with the same size as the view
+        Bitmap bitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        // Draw the view's content to the bitmap
+        draw(canvas);
+
+        return bitmap;
     }
 }

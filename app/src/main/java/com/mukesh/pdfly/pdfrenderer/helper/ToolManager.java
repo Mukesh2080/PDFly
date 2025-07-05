@@ -11,7 +11,7 @@ import com.mukesh.pdfly.R;
 public class ToolManager {
 
     public enum ToolType {
-        DRAW, UNDO, REDO, BLOCK_ACTION, SHAPE, SIGNATURE, COMMENT, TEXT
+        DRAW, UNDO, REDO, BLOCK_ACTION, SHAPE, SIGNATURE, COMMENT, TEXT, DATE
     }
 
     public interface ToolActionHandler {
@@ -27,12 +27,12 @@ public class ToolManager {
     private final int[] toolIcons = {
             R.drawable.ic_pencil, R.drawable.ic_undo, R.drawable.ic_redo,
             R.drawable.ic_select_24dp, R.drawable.ic_shapes_24dp,
-            R.drawable.ic_signature_solid, R.drawable.ic_checkmark_transparent, R.drawable.ic_text_symbol_24dp
+            R.drawable.ic_signature_solid, R.drawable.ic_checkmark_transparent, R.drawable.ic_text_symbol_24dp, R.drawable.ic_calendar_add_light
     };
 
     private final ToolType[] tools = {
             ToolType.DRAW, ToolType.UNDO, ToolType.REDO,
-            ToolType.BLOCK_ACTION, ToolType.SHAPE, ToolType.SIGNATURE, ToolType.COMMENT, ToolType.TEXT
+            ToolType.BLOCK_ACTION, ToolType.SHAPE, ToolType.SIGNATURE, ToolType.COMMENT, ToolType.TEXT, ToolType.DATE
     };
 
 

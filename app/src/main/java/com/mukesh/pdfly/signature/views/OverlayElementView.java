@@ -1,6 +1,8 @@
 package com.mukesh.pdfly.signature.views;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
@@ -93,6 +95,11 @@ public abstract class OverlayElementView extends FrameLayout {
     public void setColor(int color) {
     }
 
+    public void increaseSize() {
+    }
+    public void decreaseSize() {
+    }
+
     // Gesture Listeners
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
         @Override
@@ -116,6 +123,17 @@ public abstract class OverlayElementView extends FrameLayout {
                 location[0] + getWidth(),
                 location[1] + getHeight());
         return rect.contains((int) globalX, (int) globalY);
+    }
+
+    public Bitmap getBitmap() {
+        // Create a bitmap with the same size as the view
+        Bitmap bitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        // Draw the view's content to the bitmap
+        draw(canvas);
+
+        return bitmap;
     }
 
 }
