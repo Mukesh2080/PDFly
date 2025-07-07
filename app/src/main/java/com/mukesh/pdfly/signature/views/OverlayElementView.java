@@ -126,11 +126,20 @@ public abstract class OverlayElementView extends FrameLayout {
     }
 
     public Bitmap getBitmap() {
-        // Create a bitmap with the same size as the view
-        Bitmap bitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
+        // Create a bitmap with the view's current dimensions including scale
+        Bitmap bitmap = Bitmap.createBitmap(
+                (int) (getWidth() * getScaleX()),
+                (int) (getHeight() * getScaleY()),
+                Bitmap.Config.ARGB_8888
+        );
+
         Canvas canvas = new Canvas(bitmap);
 
-        // Draw the view's content to the bitmap
+        // Apply the same transformations to the canvas
+        canvas.scale(getScaleX(), getScaleY());
+        canvas.rotate(getRotation(), getWidth() / 2f, getHeight() / 2f);
+
+        // Draw the view
         draw(canvas);
 
         return bitmap;

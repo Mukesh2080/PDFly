@@ -1064,15 +1064,40 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                             View child = pageLayout.getChildAt(j);
                             if (child instanceof OverlayElementView) {
                                 OverlayElementView overlay = (OverlayElementView) child;
-                                Bitmap overlayBitmap = overlay.getBitmap();
-                                if (overlayBitmap != null) {
-                                    float left = overlay.getX() * ((float) pageWidth / pageLayout.getWidth());
-                                    float top = overlay.getY() * ((float) pageHeight / pageLayout.getHeight());
-                                    float width = overlay.getWidth() * ((float) pageWidth / pageLayout.getWidth());
-                                    float height = overlay.getHeight() * ((float) pageHeight / pageLayout.getHeight());
-                                    Bitmap scaledOverlay = Bitmap.createScaledBitmap(overlayBitmap, (int) width, (int) height, true);
-                                    canvas.drawBitmap(scaledOverlay, left, top, null);
-                                }
+
+                                // Step 1: Get PDF scale factors
+                                float scaleX = (float) pageWidth / pageLayout.getWidth();
+                                float scaleY = (float) pageHeight / pageLayout.getHeight();
+
+                                // Step 2: Get visual scale applied to the overlay
+                                float visualScaleX = overlay.getScaleX();
+                                float visualScaleY = overlay.getScaleY();
+
+                                // Step 3: Get original width & height
+                                int originalWidth = overlay.getWidth();
+                                int originalHeight = overlay.getHeight();
+
+                                // Step 4: Get scaled bitmap (already includes scale & rotation)
+                                Bitmap renderedBitmap = overlay.getBitmap();
+
+                                // Step 5: Adjust position to keep visual center consistent
+                                float adjustedX = overlay.getX() + (originalWidth - (originalWidth * visualScaleX)) / 2f;
+                                float adjustedY = overlay.getY() + (originalHeight - (originalHeight * visualScaleY)) / 2f;
+
+                                // Step 6: Scale position to PDF canvas
+                                float pdfX = adjustedX * scaleX;
+                                float pdfY = adjustedY * scaleY;
+
+                                // Step 7: Create drawing matrix
+                                Matrix drawMatrix = new Matrix();
+                                drawMatrix.postScale(scaleX, scaleY); // match PDF scale
+                                drawMatrix.postTranslate(pdfX, pdfY); // move to correct PDF position
+
+                                // Step 8: Draw bitmap
+                                canvas.drawBitmap(renderedBitmap, drawMatrix, null);
+
+                                // Cleanup
+                                renderedBitmap.recycle();
                             }
                         }
 
