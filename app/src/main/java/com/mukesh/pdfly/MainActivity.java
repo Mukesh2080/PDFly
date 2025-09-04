@@ -1,16 +1,24 @@
 package com.mukesh.pdfly;
 
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.view.MenuItem;
 import android.widget.Button;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.res.ResourcesCompat;
 
+import com.mukesh.pdfly.helper.CustomTypefaceSpan;
 import com.mukesh.pdfly.pdfrenderer.activity.PdfEditorActivity;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
 
     private static final int REQUEST_CODE_OPEN_PDF = 1001;
     private Button selectPdfButton;
@@ -19,7 +27,23 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        applyEdgeToEdgeInsets(R.id.appbar,R.id.rootLayout);
 
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        // Load custom font from res/font
+        Typeface typeface = ResourcesCompat.getFont(this, R.font.huricanreg);
+
+// Replace default title with custom-styled Spannable
+        SpannableString s = new SpannableString("PDFly");
+        s.setSpan(new CustomTypefaceSpan(typeface), 0, s.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        getSupportActionBar().setTitle(s);
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+
+        }
         selectPdfButton = findViewById(R.id.selectPdfButton);
         selectPdfButton.setOnClickListener(v -> openPdfPicker());
     }
@@ -51,5 +75,15 @@ public class MainActivity extends AppCompatActivity {
 //            intent.putExtra("isEditable", true); // or false for read-only mode
             startActivity(intent);
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            // Handle the back button click
+            onBackPressed();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }

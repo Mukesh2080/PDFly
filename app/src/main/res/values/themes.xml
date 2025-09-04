@@ -1,8 +1,52 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.PDFly" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+            <item name="colorPrimary">@color/md_theme_primary</item>
+            <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
+            <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>
+            <item name="colorOnPrimaryContainer">@color/md_theme_onPrimaryContainer</item>
+            <item name="colorSecondary">@color/md_theme_secondary</item>
+            <item name="colorOnSecondary">@color/md_theme_onSecondary</item>
+            <item name="colorSecondaryContainer">@color/md_theme_secondaryContainer</item>
+            <item name="colorOnSecondaryContainer">@color/md_theme_onSecondaryContainer</item>
+            <item name="colorTertiary">@color/md_theme_tertiary</item>
+            <item name="colorOnTertiary">@color/md_theme_onTertiary</item>
+            <item name="colorTertiaryContainer">@color/md_theme_tertiaryContainer</item>
+            <item name="colorOnTertiaryContainer">@color/md_theme_onTertiaryContainer</item>
+            <item name="colorError">@color/md_theme_error</item>
+            <item name="colorOnError">@color/md_theme_onError</item>
+            <item name="colorErrorContainer">@color/md_theme_errorContainer</item>
+            <item name="colorOnErrorContainer">@color/md_theme_onErrorContainer</item>
+            <item name="android:colorBackground">@color/md_theme_background</item>
+            <item name="colorOnBackground">@color/md_theme_onBackground</item>
+            <item name="colorSurface">@color/md_theme_surface</item>
+            <item name="colorOnSurface">@color/md_theme_onSurface</item>
+            <item name="colorSurfaceVariant">@color/md_theme_surfaceVariant</item>
+            <item name="colorOnSurfaceVariant">@color/md_theme_onSurfaceVariant</item>
+            <item name="colorOutline">@color/md_theme_outline</item>
+            <item name="colorOutlineVariant">@color/md_theme_outlineVariant</item>
+            <item name="colorSurfaceInverse">@color/md_theme_inverseSurface</item>
+            <item name="colorOnSurfaceInverse">@color/md_theme_inverseOnSurface</item>
+            <item name="colorPrimaryInverse">@color/md_theme_inversePrimary</item>
+            <item name="colorPrimaryFixed">@color/md_theme_primaryFixed</item>
+            <item name="colorOnPrimaryFixed">@color/md_theme_onPrimaryFixed</item>
+            <item name="colorPrimaryFixedDim">@color/md_theme_primaryFixedDim</item>
+            <item name="colorOnPrimaryFixedVariant">@color/md_theme_onPrimaryFixedVariant</item>
+            <item name="colorSecondaryFixed">@color/md_theme_secondaryFixed</item>
+            <item name="colorOnSecondaryFixed">@color/md_theme_onSecondaryFixed</item>
+            <item name="colorSecondaryFixedDim">@color/md_theme_secondaryFixedDim</item>
+            <item name="colorOnSecondaryFixedVariant">@color/md_theme_onSecondaryFixedVariant</item>
+            <item name="colorTertiaryFixed">@color/md_theme_tertiaryFixed</item>
+            <item name="colorOnTertiaryFixed">@color/md_theme_onTertiaryFixed</item>
+            <item name="colorTertiaryFixedDim">@color/md_theme_tertiaryFixedDim</item>
+            <item name="colorOnTertiaryFixedVariant">@color/md_theme_onTertiaryFixedVariant</item>
+            <item name="colorSurfaceDim">@color/md_theme_surfaceDim</item>
+            <item name="colorSurfaceBright">@color/md_theme_surfaceBright</item>
+            <item name="colorSurfaceContainerLowest">@color/md_theme_surfaceContainerLowest</item>
+            <item name="colorSurfaceContainerLow">@color/md_theme_surfaceContainerLow</item>
+            <item name="colorSurfaceContainer">@color/md_theme_surfaceContainer</item>
+            <item name="colorSurfaceContainerHigh">@color/md_theme_surfaceContainerHigh</item>
+            <item name="colorSurfaceContainerHighest">@color/md_theme_surfaceContainerHighest</item>
     </style>
 
     <style name="Theme.PDFly" parent="Base.Theme.PDFly" />
@@ -11,4 +55,49 @@
         <item name="android:windowEnterAnimation">@anim/slide_up</item>
         <item name="android:windowExitAnimation">@anim/slide_down</item>
     </style>
+
+    <style name="ThemeOverlay.IOSLikeDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="backgroundColor">@android:color/transparent</item>
+        <item name="tint">@android:color/transparent</item>
+        <item name="android:windowBackground">@drawable/bg_ios_glass</item>
+        <item name="shapeAppearanceOverlay">@style/IOSLikeDialog.Shape</item>
+        <item name="materialAlertDialogTitlePanelStyle">@style/IOSLikeDialog.TitlePanel</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/IOSLikeDialog.BodyText</item>
+        <item name="buttonBarPositiveButtonStyle">@style/IOSLikeDialog.Button.Positive</item>
+        <item name="buttonBarNegativeButtonStyle">@style/IOSLikeDialog.Button.Negative</item>
+        <item name="buttonBarNeutralButtonStyle">@style/IOSLikeDialog.Button.Neutral</item>
+        <item name="marginHorizontal">60dp</item>
+    </style>
+
+    <style name="IOSLikeDialog.Shape" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
+
+    <!-- Title style -->
+    <style name="IOSLikeDialog.TitlePanel" parent="MaterialAlertDialog.MaterialComponents.Title.Panel">
+        <item name="android:gravity">center</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- Message style -->
+    <style name="IOSLikeDialog.BodyText" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:gravity">center</item>
+    </style>
+
+    <!-- Buttons -->
+    <style name="IOSLikeDialog.Button.Positive" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">#007AFF</item> <!-- iOS blue -->
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="IOSLikeDialog.Button.Negative" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">#FF3B30</item> <!-- iOS red -->
+    </style>
+
+    <style name="IOSLikeDialog.Button.Neutral" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">#007AFF</item>
+    </style>
+
 </resources>

@@ -1,13 +1,28 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appbar"
+        android:background="@color/md_theme_primary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            app:navigationIconTint="@color/white"
+            app:titleTextColor="@color/white"
+            app:title="abe chal na"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"/>
+    </com.google.android.material.appbar.AppBarLayout>
 
     <!-- PDF Scroll Content -->
     <ScrollView
         android:id="@+id/scrollView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_below="@+id/appbar"
+        android:layout_height="wrap_content"
         android:fillViewport="true">
 
         <LinearLayout
@@ -17,6 +32,7 @@
             android:orientation="vertical"
             android:clipChildren="true"
             android:clipToPadding="true"
+            android:paddingBottom="16dp"
             android:padding="8dp"/>
     </ScrollView>
 
@@ -36,10 +52,20 @@
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:layout_margin="16dp"
+        android:visibility="gone"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:background="@drawable/bg_draw_button_inactive"
         android:src="@drawable/ic_baseline_brush_24" />
+    <View
+        android:id="@+id/blur_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@id/toolScrollView"
+        android:layout_alignBottom="@id/toolScrollView"
+        android:layout_alignStart="@id/toolScrollView"
+        android:layout_alignEnd="@id/toolScrollView"
+        android:background="@drawable/bg_pen_popup_rounded" />
 
     <!-- Bottom Tool Strip with margin -->
     <HorizontalScrollView
@@ -47,7 +73,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_marginBottom="16dp"
+        android:layout_margin="4dp"
         android:fillViewport="true"
         android:scrollbars="none"
         android:background="@drawable/bg_pen_popup_rounded"

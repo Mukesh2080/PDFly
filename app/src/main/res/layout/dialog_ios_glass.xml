@@ -1,0 +1,39 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/transparent"
+    android:padding="20dp">
+
+    <!-- Frosted background -->
+    <FrameLayout
+        android:id="@+id/frostBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToOutline="true"
+        android:background="#80FFFFFF" /> <!-- semi-transparent base -->
+
+    <!-- Foreground content stays crisp -->
+    <LinearLayout
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:text="Save changes?"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <TextView
+            android:text="Do you want to save your edits before leaving?"
+            android:gravity="center"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+</FrameLayout>

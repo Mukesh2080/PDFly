@@ -1,13 +1,18 @@
 package com.mukesh.pdfly.pdfrenderer.activity;
 
+import android.annotation.SuppressLint;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Rect;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -15,12 +20,15 @@ import android.graphics.drawable.LayerDrawable;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.OpenableColumns;
 import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,10 +43,13 @@ import android.widget.PopupMenu;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
@@ -47,6 +58,7 @@ import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.mukesh.pdfly.BaseActivity;
 import com.mukesh.pdfly.DrawSettingsProvider;
 import com.mukesh.pdfly.databinding.ViewElementToolbarBinding;
 import com.mukesh.pdfly.pdfrenderer.helper.PdfRendererHelper;
@@ -74,7 +86,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
-public class PdfEditorActivity extends AppCompatActivity implements DrawSettingsProvider {
+public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvider {
     private int globalPaintColor = Color.BLACK;
     private float globalStrokeWidth = 9f;
     private ImageView drawToolIconView;
@@ -107,11 +119,16 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
     private boolean selectedDateMode = false; // set this true when text icon is clicked
     //to move toolbar options with shape
     private View elementToolbar;
+    private String name="";
 
     @Override
     public void onBackPressed() {
-        super.onBackPressed();
-        savePdfWithOverlays();
+        if(hasChanges()){
+            savePdfWithOverlays();
+        }
+        else {
+            super.onBackPressed();
+        }
     }
 
 
@@ -178,6 +195,7 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             case SHAPE:
                 deselectAllOverlays();
                 isDrawMode = false;
+                isCheckmarkSelected = false;
                 selectedShapeType = null;
                 selectedSignatureBitmap = null;
                 for (DrawView dv : drawViews) dv.setDrawingEnabled(false);
@@ -190,7 +208,7 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 }
                 signaturePickerDialogHelper.show();
                 break;
-            case COMMENT:
+            case CHECKMARK:
                 deselectAllOverlays();
                 isCheckmarkSelected = true;
                 selectedShapeType = null;
@@ -198,7 +216,7 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 isDrawMode = false;
                 for (DrawView dv : drawViews) dv.setDrawingEnabled(false);
 
-                Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
+                //Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
                 break;
             case TEXT:
                 deselectAllOverlays();
@@ -210,7 +228,7 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 isDrawMode = false;
                 for (DrawView dv : drawViews) dv.setDrawingEnabled(false);
 
-                Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
+                //Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
                 break;
             case DATE:
                 deselectAllOverlays();
@@ -222,17 +240,19 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 isDrawMode = false;
                 for (DrawView dv : drawViews) dv.setDrawingEnabled(false);
 
-                Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
+                //Toast.makeText(this, "Comment Tool (not implemented)", Toast.LENGTH_SHORT).show();
                 break;
         }
         selectedToolIndex = index;
     }
 
+    @SuppressLint("SuspiciousIndentation")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pdf_editor);
-
+        applyEdgeToEdgeInsets(R.id.rootLayout,R.id.appbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         toolManager = new ToolManager(this, findViewById(R.id.toolContainer), this::handleToolSelection);
         drawToolIconView = toolManager.getDrawToolIconView();
 
@@ -282,13 +302,38 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                 dv.setDrawingEnabled(isDrawMode);
             }
         });
+        setSupportActionBar(toolbar);
+
+        // Get the ActionBar to enable the back button
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+
+        }
         if (pdfUri != null) {
+
+            String title = getFileNameFromUri(this,pdfUri);
+            name = title;
+            if(toolbar!=null) {
+                toolbar.setTitle(title.isEmpty() ? "hihi" : title);
+            }
+
             renderAllPdfPages(pdfUri);
         } else {
             Toast.makeText(this, "No PDF selected", Toast.LENGTH_SHORT).show();
             finish();
         }
-       // renderAllPdfPages(pdfUri);
+        View blurView = findViewById(R.id.blur_view);
+
+        // Check for Android 12 (API 31) or higher
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Create a blur effect
+            RenderEffect blurEffect = RenderEffect.createBlurEffect(10f, 10f, Shader.TileMode.DECAL);
+
+            // Apply the blur effect to the background view
+            blurView.setRenderEffect(blurEffect);
+        }
+        // renderAllPdfPages(pdfUri);
     }
     private void addShapeToPage(ViewGroup parent, float x, float y, ShapeType shapeType) {
         ShapeElementView shapeView = new ShapeElementView(this, shapeType, globalPaintColor, globalStrokeWidth);
@@ -310,32 +355,33 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
         int marginPx = dpToPx(12);
 
         pageContainer.removeAllViews();
-        pageContainer.removeAllViews();
         zoomablePages.clear();
         drawViews.clear();
         overlayElements.clear();
 
         PdfRendererHelper.renderAllPages(this, uri, (bitmap, index) -> {
+            int renderHeight = bitmap.getHeight(); // Get exact rendered height
+
+            // === Zoomable Page Container ===
             ZoomableFrameLayout zoomablePage = new ZoomableFrameLayout(this);
-            zoomablePage.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams pageLayoutParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            ) {{
-                setMargins(0, marginPx, 0, marginPx);
-            }});
+                    renderHeight
+            );
+            pageLayoutParams.setMargins(0, marginPx, 0, marginPx);
+            zoomablePage.setLayoutParams(pageLayoutParams);
             zoomablePage.setBackgroundColor(Color.WHITE);
 
-            // PDF content image
+            // === Rendered PDF Content ===
             ImageView imageView = new ImageView(this);
             imageView.setImageBitmap(bitmap);
-            imageView.setAdjustViewBounds(true);
-            imageView.setAdjustViewBounds(true);
+            imageView.setScaleType(ImageView.ScaleType.FIT_XY); // stretch to fit
             imageView.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
+                    renderHeight
             ));
 
-            // Drawing overlay
+            // === DrawView ===
             DrawView drawView = new DrawView(this);
             drawView.setDrawSettingsProvider(this);
             drawView.setDrawingEnabled(isDrawMode);
@@ -344,66 +390,50 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                     ViewGroup.LayoutParams.MATCH_PARENT
             ));
 
-                // Set up touch handling for signatures
+            // === Touch Handling ===
             zoomablePage.setOnTouchListener((v, event) -> {
-                if(blockAllActions){
-                    return false;
-                }
+                if (blockAllActions) return false;
+
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
                     OverlayElementView tappedOverlay = findOverlayAtPosition(zoomablePage, event.getX(), event.getY());
 
-                    // Case 1: If any overlay is selected
+                    // If an overlay was already selected
                     if (selectedOverlay != null) {
                         if (tappedOverlay != selectedOverlay) {
-                            // Tapped somewhere else — either empty space or another overlay
                             deselectAllOverlays();
                         }
-
                         if (tappedOverlay != null && tappedOverlay != selectedOverlay) {
-                            onElementSelected(tappedOverlay); // Select new
+                            onElementSelected(tappedOverlay);
                         }
-
                         return true;
                     }
 
-                    // Case 2: Tap on overlay when none was selected
+                    // If we tap a new overlay
                     if (tappedOverlay != null) {
                         onElementSelected(tappedOverlay);
                         return true;
                     }
 
-                    // Case 3: Tap on empty space with insertion tools
+                    // Tap on empty space
                     if (tappedOverlay == null) {
                         if (selectedTextMode && !isDrawMode) {
                             addTextToPage(zoomablePage, event.getX(), event.getY());
                             return true;
                         }
-
-                        // Other cases (signatures, checkmarks, shapes)
-                    }
-
-                    if (tappedOverlay == null) {
-                        // Signature mode
                         if (selectedSignatureBitmap != null && !isDrawMode) {
                             addSignatureToPage(zoomablePage, event.getX(), event.getY());
                             return true;
                         }
-
-                        // Checkmark mode
                         if (isCheckmarkSelected && !isDrawMode) {
                             addCheckmarkToPage(zoomablePage, event.getX(), event.getY());
                             return true;
                         }
-
-                        // Shape mode
                         if (selectedShapeType != null && !isDrawMode) {
                             addShapeToPage(zoomablePage, event.getX(), event.getY(), selectedShapeType);
                             return true;
                         }
 
-                        // 💡 This is the missing part:
-                        // If we tapped on empty space and nothing is being added, just deselect anything selected
-                        deselectAllOverlays();
+                        deselectAllOverlays(); // Nothing selected or inserted
                         return true;
                     }
                 }
@@ -1012,6 +1042,60 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
     }
 
     private void savePdfWithOverlays() {
+        if(hasChanges()){
+            AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_IOSLikeDialog)
+                    .setTitle("Save changes?")
+                    .setMessage("Do you want to save your edits before leaving?")
+                    .setPositiveButton("Save", (d, which) -> {
+                        savePDF();
+                        finish();
+                    })
+                    .setNegativeButton("Discard", (d, which) -> finish())
+                    .setNeutralButton("Cancel", (d, which) -> d.dismiss())
+                    .create();
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawableResource(R.drawable.bg_ios_glass);
+            }
+            dialog.show();
+
+        }
+    }
+
+    private String getFileNameFromUri(Context context, Uri uri) {
+        String result = null;
+
+        // Case 1: content:// URIs (most common for SAF or file pickers)
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = context.getContentResolver()
+                    .query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (nameIndex >= 0) {
+                        result = cursor.getString(nameIndex);
+                    }
+                }
+            }
+        }
+
+        // Case 2: file:// URIs (direct file path)
+        if (result == null && uri.getScheme().equals("file")) {
+            result = new File(uri.getPath()).getName();
+        }
+
+        return result;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            // Handle the back button click
+            savePdfWithOverlays();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void savePDF(){
         ProgressDialog progressDialog = new ProgressDialog(this);
         progressDialog.setMessage("Saving PDF...");
         progressDialog.setCancelable(false);
@@ -1021,35 +1105,31 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             @Override
             protected File doInBackground(Void... voids) {
                 try {
-                    // Use Downloads directory
                     File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                     if (!downloadsDir.exists()) {
                         downloadsDir.mkdirs();
                     }
 
-                    File outputFile = new File(downloadsDir, "annotated_" + System.currentTimeMillis() + ".pdf");
+//                        File outputFile = new File(downloadsDir, "Pdfly_" + System.currentTimeMillis() + ".pdf");
+                    File outputFile = new File(downloadsDir, "Pdfly_" + name + ".pdf");
 
-                    // Create a new PDF document
                     PdfDocument document = new PdfDocument();
 
                     for (int i = 0; i < zoomablePages.size(); i++) {
                         ZoomableFrameLayout pageLayout = zoomablePages.get(i);
                         DrawView drawView = drawViews.get(i);
 
-                        // Get original page size
                         ImageView pdfImageView = (ImageView) pageLayout.getChildAt(0);
                         Bitmap originalBitmap = ((BitmapDrawable) pdfImageView.getDrawable()).getBitmap();
                         int pageWidth = originalBitmap.getWidth();
                         int pageHeight = originalBitmap.getHeight();
 
-                        // Create combined bitmap
                         Bitmap combinedBitmap = Bitmap.createBitmap(pageWidth, pageHeight, Bitmap.Config.ARGB_8888);
                         Canvas canvas = new Canvas(combinedBitmap);
 
-                        // Draw original PDF
                         canvas.drawBitmap(originalBitmap, 0, 0, null);
 
-                        // Draw drawing layer
+                        // Scale drawing layer
                         Bitmap drawingBitmap = drawView.getBitmap();
                         if (drawingBitmap != null) {
                             Matrix matrix = new Matrix();
@@ -1065,22 +1145,17 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                             if (child instanceof OverlayElementView) {
                                 OverlayElementView overlay = (OverlayElementView) child;
 
-                                // Step 1: Get PDF scale factors
                                 float scaleX = (float) pageWidth / pageLayout.getWidth();
                                 float scaleY = (float) pageHeight / pageLayout.getHeight();
 
-                                // Step 2: Get visual scale applied to the overlay
                                 float visualScaleX = overlay.getScaleX();
                                 float visualScaleY = overlay.getScaleY();
 
-                                // Step 3: Get original width & height
                                 int originalWidth = overlay.getWidth();
                                 int originalHeight = overlay.getHeight();
 
-                                // Step 4: Get scaled bitmap (already includes scale & rotation)
                                 Bitmap renderedBitmap = overlay.getBitmap();
 
-                                // Step 5: Adjust position to keep visual center consistent
                                 float adjustedX = overlay.getX() + (originalWidth - (originalWidth * visualScaleX)) / 2f;
                                 float adjustedY = overlay.getY() + (originalHeight - (originalHeight * visualScaleY)) / 2f;
 
@@ -1088,15 +1163,11 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                                 float pdfX = adjustedX * scaleX;
                                 float pdfY = adjustedY * scaleY;
 
-                                // Step 7: Create drawing matrix
                                 Matrix drawMatrix = new Matrix();
                                 drawMatrix.postScale(scaleX, scaleY); // match PDF scale
                                 drawMatrix.postTranslate(pdfX, pdfY); // move to correct PDF position
 
-                                // Step 8: Draw bitmap
                                 canvas.drawBitmap(renderedBitmap, drawMatrix, null);
-
-                                // Cleanup
                                 renderedBitmap.recycle();
                             }
                         }
@@ -1109,7 +1180,6 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
                         combinedBitmap.recycle();
                     }
 
-                    // Save PDF to Downloads
                     FileOutputStream fos = new FileOutputStream(outputFile);
                     document.writeTo(fos);
                     document.close();
@@ -1131,8 +1201,6 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
 
                 if (result != null) {
                     Toast.makeText(PdfEditorActivity.this, "Saved to Downloads", Toast.LENGTH_SHORT).show();
-
-                    // Optional: Trigger media scan so it's visible in file managers
                     Intent scanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
                     scanIntent.setData(Uri.fromFile(result));
                     sendBroadcast(scanIntent);
@@ -1142,6 +1210,20 @@ public class PdfEditorActivity extends AppCompatActivity implements DrawSettings
             }
         }.execute();
     }
+
+    private boolean hasChanges() {
+        // Check overlays
+        if (!overlayElements.isEmpty()) {
+            return true;
+        }
+
+        if(!drawViews.isEmpty()){
+            return true;
+        }
+
+        return false;
+    }
+
 
 
 }

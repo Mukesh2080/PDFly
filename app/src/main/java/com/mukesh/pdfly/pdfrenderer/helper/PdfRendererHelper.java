@@ -46,26 +46,26 @@ public class PdfRendererHelper {
     private static void renderFromParcel(Context context, ParcelFileDescriptor pfd, OnPageRenderedListener listener) throws IOException {
         PdfRenderer renderer = new PdfRenderer(pfd);
         int pageCount = renderer.getPageCount();
-        int dpi = context.getResources().getDisplayMetrics().densityDpi;
-// Get screen size for safe rendering dimensions
+
         DisplayMetrics metrics = context.getResources().getDisplayMetrics();
-        int maxWidth = metrics.widthPixels;
-        int maxHeight = metrics.heightPixels;
+        int screenWidth = metrics.widthPixels;
+
         for (int i = 0; i < pageCount; i++) {
             PdfRenderer.Page page = renderer.openPage(i);
             int pageWidth = page.getWidth();
             int pageHeight = page.getHeight();
 
-            // Calculate scale to fit within screen size
-            float scale = Math.min((float) maxWidth / pageWidth, (float) maxHeight / pageHeight);
+            // ✅ Always fit to screen width only
+            float scale = (float) screenWidth / pageWidth;
 
-            int renderWidth = (int) (pageWidth * scale);
+            int renderWidth = screenWidth;
             int renderHeight = (int) (pageHeight * scale);
 
-            // Estimate bitmap size and skip if too large (optional safety)
+            // Prevent extremely large bitmaps
             long estimatedBytes = renderWidth * renderHeight * 4L;
-            if (estimatedBytes > 100 * 1024 * 1024) { // >100MB
+            if (estimatedBytes > 100 * 1024 * 1024) {
                 Log.e("PDFRenderer", "Bitmap too large, skipping page " + i);
+                page.close();
                 continue;
             }
 
