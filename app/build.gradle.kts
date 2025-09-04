@@ -9,20 +9,11 @@ android {
     defaultConfig {
         applicationId = "com.mukesh.pdfly"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1   // increment each release!
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    signingConfigs {
-        create("release") {
-            storeFile = file(project.property("PDFLY_STORE_FILE") as String)
-            storePassword = project.property("PDFLY_STORE_PASSWORD") as String
-            keyAlias = project.property("PDFLY_KEY_ALIAS") as String
-            keyPassword = project.property("PDFLY_KEY_PASSWORD") as String
-        }
     }
 
     buildFeatures {
@@ -37,7 +28,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             // keep debug unsigned
