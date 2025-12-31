@@ -10,8 +10,8 @@ android {
         applicationId = "com.mukesh.pdfly"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1   // increment each release!
-        versionName = "1.0"
+        versionCode = 2   // increment each release!
+        versionName = "2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -50,4 +50,5 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
 
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.github.barteksc:android-pdf-viewer:3.2.0-beta.1")
 }

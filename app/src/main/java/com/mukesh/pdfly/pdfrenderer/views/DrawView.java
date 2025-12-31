@@ -115,8 +115,8 @@ public class DrawView extends View {
                 currentPath.moveTo(x, y);
 
                 currentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                currentPaint.setColor(settingsProvider.getCurrentPaintColor());
-                currentPaint.setStrokeWidth(settingsProvider.getCurrentStrokeWidth());
+                //currentPaint.setColor(settingsProvider.getCurrentPaintColor());
+                //setStrokeWidth(settingsProvider.getCurrentStrokeWidth());
                 currentPaint.setStyle(Paint.Style.STROKE);
                 currentPaint.setStrokeJoin(Paint.Join.ROUND);
                 currentPaint.setStrokeCap(Paint.Cap.ROUND);

@@ -18,11 +18,13 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.pdf.PdfDocument;
+import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.provider.OpenableColumns;
 import android.text.InputType;
 import android.util.DisplayMetrics;
@@ -52,6 +54,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.datepicker.MaterialDatePicker;
@@ -60,6 +64,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.mukesh.pdfly.BaseActivity;
 import com.mukesh.pdfly.DrawSettingsProvider;
+import com.mukesh.pdfly.PdfPageAdapter;
 import com.mukesh.pdfly.databinding.ViewElementToolbarBinding;
 import com.mukesh.pdfly.pdfrenderer.helper.PdfRendererHelper;
 import com.mukesh.pdfly.pdfrenderer.helper.PenSettingsDialogHelper;
@@ -79,6 +84,7 @@ import com.mukesh.pdfly.signature.views.SignatureElementView;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -119,6 +125,10 @@ public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvi
     private boolean selectedDateMode = false; // set this true when text icon is clicked
     //to move toolbar options with shape
     private View elementToolbar;
+    private ParcelFileDescriptor pfd;
+    private PdfRenderer renderer;
+
+
     private String name="";
 
     @Override
@@ -293,7 +303,7 @@ public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvi
 
         pageContainer = findViewById(R.id.pageContainer);
         drawButton = findViewById(R.id.drawButton);
-        pageContainer.setBackgroundColor(Color.parseColor("#EEEEEE"));
+        //pageContainer.setBackgroundColor(Color.parseColor("#EEEEEE"));
 
         drawButton.setOnClickListener(v -> {
             isDrawMode = !isDrawMode;
@@ -318,11 +328,38 @@ public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvi
                 toolbar.setTitle(title.isEmpty() ? "hihi" : title);
             }
 
-            renderAllPdfPages(pdfUri);
+            //renderAllPdfPages(pdfUri);
         } else {
             Toast.makeText(this, "No PDF selected", Toast.LENGTH_SHORT).show();
             finish();
+        }if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+
+            final int takeFlags =  (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            try {
+                getContentResolver().takePersistableUriPermission(pdfUri, takeFlags);
+            } catch (SecurityException ignored) { }
         }
+
+        // Set Toolbar title
+        String title = getFileNameFromUri(this, pdfUri);
+        if (toolbar != null) toolbar.setTitle(title.isEmpty() ? "PDF Document" : title);
+
+        // ─── Open ParcelFileDescriptor ──────────────────
+        try {
+            pfd = getContentResolver().openFileDescriptor(pdfUri, "r");
+            if (pfd == null) throw new IOException("Cannot open file");
+            renderer = new PdfRenderer(pfd);
+        } catch (IOException e) {
+            Toast.makeText(this, "Failed to open PDF", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        PdfPageAdapter adapter = new PdfPageAdapter(this, renderer, isDrawMode);
+
+        RecyclerView rv = findViewById(R.id.pdfRecyclerView);
+        rv.setLayoutManager(new LinearLayoutManager(this));
+        rv.setAdapter(adapter);
+
         View blurView = findViewById(R.id.blur_view);
 
         // Check for Android 12 (API 31) or higher
@@ -335,121 +372,8 @@ public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvi
         }
         // renderAllPdfPages(pdfUri);
     }
-    private void addShapeToPage(ViewGroup parent, float x, float y, ShapeType shapeType) {
-        ShapeElementView shapeView = new ShapeElementView(this, shapeType, globalPaintColor, globalStrokeWidth);
 
-        int width = dpToPx(100);
-        int height = dpToPx(100);
 
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
-        params.leftMargin = (int) x - width / 2;
-        params.topMargin = (int) y - height / 2;
-
-        shapeView.setLayoutParams(params);
-        parent.addView(shapeView);
-        overlayElements.add(shapeView);
-        onElementSelected(shapeView);
-    }
-
-    private void renderAllPdfPages(Uri uri) {
-        int marginPx = dpToPx(12);
-
-        pageContainer.removeAllViews();
-        zoomablePages.clear();
-        drawViews.clear();
-        overlayElements.clear();
-
-        PdfRendererHelper.renderAllPages(this, uri, (bitmap, index) -> {
-            int renderHeight = bitmap.getHeight(); // Get exact rendered height
-
-            // === Zoomable Page Container ===
-            ZoomableFrameLayout zoomablePage = new ZoomableFrameLayout(this);
-            LinearLayout.LayoutParams pageLayoutParams = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    renderHeight
-            );
-            pageLayoutParams.setMargins(0, marginPx, 0, marginPx);
-            zoomablePage.setLayoutParams(pageLayoutParams);
-            zoomablePage.setBackgroundColor(Color.WHITE);
-
-            // === Rendered PDF Content ===
-            ImageView imageView = new ImageView(this);
-            imageView.setImageBitmap(bitmap);
-            imageView.setScaleType(ImageView.ScaleType.FIT_XY); // stretch to fit
-            imageView.setLayoutParams(new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    renderHeight
-            ));
-
-            // === DrawView ===
-            DrawView drawView = new DrawView(this);
-            drawView.setDrawSettingsProvider(this);
-            drawView.setDrawingEnabled(isDrawMode);
-            drawView.setLayoutParams(new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-            ));
-
-            // === Touch Handling ===
-            zoomablePage.setOnTouchListener((v, event) -> {
-                if (blockAllActions) return false;
-
-                if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    OverlayElementView tappedOverlay = findOverlayAtPosition(zoomablePage, event.getX(), event.getY());
-
-                    // If an overlay was already selected
-                    if (selectedOverlay != null) {
-                        if (tappedOverlay != selectedOverlay) {
-                            deselectAllOverlays();
-                        }
-                        if (tappedOverlay != null && tappedOverlay != selectedOverlay) {
-                            onElementSelected(tappedOverlay);
-                        }
-                        return true;
-                    }
-
-                    // If we tap a new overlay
-                    if (tappedOverlay != null) {
-                        onElementSelected(tappedOverlay);
-                        return true;
-                    }
-
-                    // Tap on empty space
-                    if (tappedOverlay == null) {
-                        if (selectedTextMode && !isDrawMode) {
-                            addTextToPage(zoomablePage, event.getX(), event.getY());
-                            return true;
-                        }
-                        if (selectedSignatureBitmap != null && !isDrawMode) {
-                            addSignatureToPage(zoomablePage, event.getX(), event.getY());
-                            return true;
-                        }
-                        if (isCheckmarkSelected && !isDrawMode) {
-                            addCheckmarkToPage(zoomablePage, event.getX(), event.getY());
-                            return true;
-                        }
-                        if (selectedShapeType != null && !isDrawMode) {
-                            addShapeToPage(zoomablePage, event.getX(), event.getY(), selectedShapeType);
-                            return true;
-                        }
-
-                        deselectAllOverlays(); // Nothing selected or inserted
-                        return true;
-                    }
-                }
-                return false;
-            });
-
-            zoomablePage.addView(imageView);
-            zoomablePage.addView(drawView);
-            zoomablePage.setClipChildren(true);
-            zoomablePage.setClipToPadding(true);
-            pageContainer.addView(zoomablePage);
-
-            zoomablePages.add(zoomablePage);
-            drawViews.add(drawView);
-        });
-    }
 
     // Helper methods used in the main method
     private int dpToPx(int dp) {
@@ -571,50 +495,6 @@ public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvi
         }
         overlayElements.remove(element);
         hideElementToolbar();
-    }
-    private OverlayElementView findOverlayAtPosition(ViewGroup parent, float x, float y) {
-        int[] containerLocation = new int[2];
-        parent.getLocationOnScreen(containerLocation);
-        float globalX = x + containerLocation[0];
-        float globalY = y + containerLocation[1];
-
-        for (int i = parent.getChildCount() - 1; i >= 0; i--) { // Topmost view first
-            View child = parent.getChildAt(i);
-            if (child instanceof OverlayElementView) {
-                OverlayElementView overlay = (OverlayElementView) child;
-                if (overlay.hitTest(globalX, globalY)) {
-                    return overlay;
-                }
-            }
-        }
-        return null;
-    }
-
-
-    public void showShapeContextMenu(ShapeElementView shapeView) {
-        PopupMenu popup = new PopupMenu(this, shapeView); // or use an anchor view
-        popup.getMenuInflater().inflate(R.menu.shape_context_menu, popup.getMenu());
-
-        popup.setOnMenuItemClickListener(item -> {
-            int id = item.getItemId();
-
-            if(id ==R.id.menu_change_color ) {
-                openColorPickerDialog(shapeView);
-                return true;
-            }
-
-            if(id ==R.id.menu_change_stroke ) {
-                openStrokeWidthDialog(shapeView);
-                return true;
-            }
-            return false;
-
-        });
-
-        popup.show();
-    }
-
-    private void openColorPickerDialog(ShapeElementView shapeView) {
     }
 
     private void openStrokeWidthDialog(ShapeElementView shape) {
@@ -799,46 +679,6 @@ public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvi
         drawable.setStroke(3, Color.LTGRAY);
         return drawable;
     }
-    private void addCheckmarkToPage(ViewGroup page, float x, float y) {
-        CheckmarkElementView checkmark = new CheckmarkElementView(this);
-        int size = dpToPx(100);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
-        checkmark.setLayoutParams(lp);
-
-        checkmark.setX(x - size / 2f); // Center it on touch
-        checkmark.setY(y - size / 2f);
-
-        page.addView(checkmark);
-        overlayElements.add(checkmark); // For undo/selection tracking
-        onElementSelected(checkmark);
-    }
-
-    public void addTextToPage(ViewGroup page, float x, float y) {
-        String initialText = "Enter text"; // Or insert formatted date if date mode
-        int defaultColor = Color.BLACK;
-        float defaultSizeSp = 18f;
-
-        TextElementView textElement = new TextElementView(this, initialText, defaultColor, defaultSizeSp);
-
-        int initialWidth = dpToPx(150);
-        int initialHeight = dpToPx(60);
-        ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(initialWidth, initialHeight);
-        textElement.setLayoutParams(layoutParams);
-
-        page.addView(textElement);
-
-        // Offset to center the touch point
-        textElement.setX(x - initialWidth / 2f);
-        textElement.setY(y - initialHeight / 2f);
-        overlayElements.add(textElement);
-        textElement.setSelectedState(true);
-        onElementSelected(textElement);
-        if(!selectedDateMode)
-        showTextEditDialog(textElement);
-        else{
-            showDatePickerForTextElement(textElement);
-        }
-    }
     private void showTextEditDialog(TextElementView textView) {
         // Create Material text input layout
         TextInputLayout textInputLayout = new TextInputLayout(this);
@@ -920,125 +760,6 @@ public class PdfEditorActivity extends BaseActivity implements DrawSettingsProvi
         });
 
         datePicker.show(getSupportFragmentManager(), "DATE_PICKER");
-    }
-
-
-    private void savePdfWithOverlayss() {
-        // Create a temporary directory to store processed pages
-        File outputDir = new File(getCacheDir(), "pdf_export");
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
-
-        // Create a progress dialog
-        ProgressDialog progressDialog = new ProgressDialog(this);
-        progressDialog.setMessage("Saving PDF...");
-        progressDialog.setCancelable(false);
-        progressDialog.show();
-
-        // Process in background thread
-        new AsyncTask<Void, Void, File>() {
-            @Override
-            protected File doInBackground(Void... voids) {
-                try {
-                    // Create a new PDF document
-                    PdfDocument document = new PdfDocument();
-                    DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-
-                    // Process each page
-                    for (int i = 0; i < zoomablePages.size(); i++) {
-                        ZoomableFrameLayout pageLayout = zoomablePages.get(i);
-                        DrawView drawView = drawViews.get(i);
-
-                        // Get the original PDF page size
-                        ImageView pdfImageView = (ImageView) pageLayout.getChildAt(0);
-                        Bitmap originalBitmap = ((BitmapDrawable) pdfImageView.getDrawable()).getBitmap();
-                        int pageWidth = originalBitmap.getWidth();
-                        int pageHeight = originalBitmap.getHeight();
-
-                        // Create a bitmap for the combined content
-                        Bitmap combinedBitmap = Bitmap.createBitmap(pageWidth, pageHeight, Bitmap.Config.ARGB_8888);
-                        Canvas canvas = new Canvas(combinedBitmap);
-
-                        // 1. Draw the original PDF content
-                        canvas.drawBitmap(originalBitmap, 0, 0, null);
-
-                        // 2. Draw the drawing layer
-                        Bitmap drawingBitmap = drawView.getBitmap();
-                        if (drawingBitmap != null) {
-                            // Scale drawing to match PDF size
-                            Matrix matrix = new Matrix();
-                            float scaleX = (float) pageWidth / drawView.getWidth();
-                            float scaleY = (float) pageHeight / drawView.getHeight();
-                            matrix.postScale(scaleX, scaleY);
-                            canvas.drawBitmap(drawingBitmap, matrix, null);
-                        }
-
-                        // 3. Draw all overlay elements
-                        for (int j = 0; j < pageLayout.getChildCount(); j++) {
-                            View child = pageLayout.getChildAt(j);
-                            if (child instanceof OverlayElementView) {
-                                OverlayElementView overlay = (OverlayElementView) child;
-                                Bitmap overlayBitmap = overlay.getBitmap();
-
-                                if (overlayBitmap != null) {
-                                    // Calculate position relative to PDF size
-                                    float left = overlay.getX() * ((float) pageWidth / pageLayout.getWidth());
-                                    float top = overlay.getY() * ((float) pageHeight / pageLayout.getHeight());
-                                    float width = overlay.getWidth() * ((float) pageWidth / pageLayout.getWidth());
-                                    float height = overlay.getHeight() * ((float) pageHeight / pageLayout.getHeight());
-
-                                    // Scale the overlay bitmap
-                                    Bitmap scaledOverlay = Bitmap.createScaledBitmap(overlayBitmap, (int) width, (int) height, true);
-                                    canvas.drawBitmap(scaledOverlay, left, top, null);
-                                }
-                            }
-                        }
-
-                        // Create a PDF page
-                        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(pageWidth, pageHeight, i).create();
-                        PdfDocument.Page page = document.startPage(pageInfo);
-
-                        // Draw the combined bitmap to the PDF page
-                        page.getCanvas().drawBitmap(combinedBitmap, 0, 0, null);
-                        document.finishPage(page);
-
-                        // Recycle bitmaps
-                        combinedBitmap.recycle();
-                    }
-
-                    // Save the document to a file
-                    File outputFile = new File(outputDir, "annotated_" + System.currentTimeMillis() + ".pdf");
-                    document.writeTo(new FileOutputStream(outputFile));
-                    document.close();
-
-                    return outputFile;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    return null;
-                }
-            }
-
-            @Override
-            protected void onPostExecute(File result) {
-                if (!isFinishing() && !isDestroyed()) {
-                    progressDialog.dismiss();
-                }
-                if (result != null) {
-                    // Share the saved PDF
-                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
-                    shareIntent.setType("application/pdf");
-                    Uri uri = FileProvider.getUriForFile(PdfEditorActivity.this,
-                            getPackageName() + ".fileprovider", result);
-                    shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-                    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-                    startActivity(Intent.createChooser(shareIntent, "Share PDF"));
-                } else {
-                    Toast.makeText(PdfEditorActivity.this, "Failed to save PDF", Toast.LENGTH_SHORT).show();
-                }
-            }
-        }.execute();
     }
 
     private void savePdfWithOverlays() {

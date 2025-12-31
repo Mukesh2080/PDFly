@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.maven
+
 pluginManagement {
     repositories {
         google {
@@ -16,6 +18,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        //maven { url = uri("https://jitpack.io") } // Add this
+        maven {url = uri("https://artifactory.appodeal.com/appodeal-public")}
     }
 }
 

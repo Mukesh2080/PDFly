@@ -18,31 +18,21 @@
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- PDF Scroll Content -->
-    <ScrollView
-        android:id="@+id/scrollView"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/pdfRecyclerView"
         android:layout_width="match_parent"
-        android:layout_below="@+id/appbar"
-        android:layout_height="wrap_content"
-        android:fillViewport="true">
-
-        <LinearLayout
-            android:id="@+id/pageContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:clipChildren="true"
-            android:clipToPadding="true"
-            android:paddingBottom="16dp"
-            android:padding="8dp"/>
-    </ScrollView>
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="80dp"
+        />
 
     <!-- Floating Toolbar Overlay -->
     <FrameLayout
         android:id="@+id/overlay_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_alignTop="@id/scrollView"
-        android:layout_alignBottom="@id/scrollView"
+        android:layout_alignTop="@id/pdfRecyclerView"
+        android:layout_alignBottom="@id/pdfRecyclerView"
         android:clickable="false"
         android:focusable="false" />
 
